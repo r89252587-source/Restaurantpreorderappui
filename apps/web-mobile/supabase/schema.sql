@@ -66,3 +66,7 @@ CREATE POLICY "Allow public update to orders" ON orders FOR UPDATE USING (true);
 
 CREATE POLICY "Allow public insert to order_items" ON order_items FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public select to order_items" ON order_items FOR SELECT USING (true);
+
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS opening_hours TEXT;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS description TEXT;
