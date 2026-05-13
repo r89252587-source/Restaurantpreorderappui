@@ -38,7 +38,7 @@ export default function App() {
   const [orders, setOrders] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
-  const [restaurant, setRestaurant] = useState<any>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -143,9 +143,19 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
-      <Sidebar currentView={currentView} setView={setCurrentView} onSignOut={() => supabase.auth.signOut()} />
-      <main className="flex-1 ml-[260px] p-8">
-        <Header viewTitle={currentView} userProfile={profile} />
+      <div className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)}></div>
+      <Sidebar 
+        currentView={currentView} 
+        setView={(v) => { setCurrentView(v); setSidebarOpen(false); }} 
+        onSignOut={() => supabase.auth.signOut()} 
+        isOpen={sidebarOpen}
+      />
+      <main className="flex-1 lg:ml-[260px] p-4 lg:p-8">
+        <Header 
+          viewTitle={currentView} 
+          userProfile={profile} 
+          onMenuClick={() => setSidebarOpen(true)}
+        />
         
         {currentView === 'dashboard' && <DashboardView orders={orders} fetchOrders={fetchOrders} />}
         {currentView === 'menu' && <MenuManagementView menuItems={menuItems} fetchMenu={fetchMenu} />}
@@ -201,7 +211,7 @@ function PendingAccessView({ onSignOut }: { onSignOut: () => void }) {
   );
 }
 
-function Sidebar({ currentView, setView, onSignOut }: { currentView: View, setView: (v: View) => void, onSignOut: () => void }) {
+function Sidebar({ currentView, setView, onSignOut, isOpen }: { currentView: View, setView: (v: View) => void, onSignOut: () => void, isOpen: boolean }) {
   const links: { id: View, icon: any, label: string }[] = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'menu', icon: BookOpen, label: 'Menu Management' },
@@ -210,7 +220,7 @@ function Sidebar({ currentView, setView, onSignOut }: { currentView: View, setVi
   ];
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="logo">
         <Utensils />
         <span>QuickBite</span>
@@ -240,7 +250,7 @@ function Sidebar({ currentView, setView, onSignOut }: { currentView: View, setVi
   );
 }
 
-function Header({ viewTitle, userProfile }: { viewTitle: string, userProfile: any }) {
+function Header({ viewTitle, userProfile, onMenuClick }: { viewTitle: string, userProfile: any, onMenuClick: () => void }) {
   const titles = {
     dashboard: 'Dashboard Overview',
     menu: 'Menu Management',
@@ -250,9 +260,14 @@ function Header({ viewTitle, userProfile }: { viewTitle: string, userProfile: an
 
   return (
     <header>
-      <div className="header-title">
-        <h1 className="text-2xl font-bold">{titles[viewTitle as keyof typeof titles]}</h1>
-        <p className="text-[#64748B] text-sm">Welcome back, Admin</p>
+      <div className="flex items-center">
+        <button className="menu-toggle" onClick={onMenuClick}>
+          <RefreshCw size={24} /> {/* Using RefreshCw as a placeholder for Menu icon if not imported */}
+        </button>
+        <div className="header-title">
+          <h1 className="text-xl lg:text-2xl font-bold">{titles[viewTitle as keyof typeof titles]}</h1>
+          <p className="hidden sm:block text-[#64748B] text-sm">Welcome back, Admin</p>
+        </div>
       </div>
       <div className="user-profile">
         <div className="notifications">
