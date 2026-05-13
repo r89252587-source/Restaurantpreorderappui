@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuickBite Admin | Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <i data-lucide="utensils"></i>
+      <span>QuickBite</span>
+    </div>
+    
+    <ul class="nav-links">
+      <li class="nav-item">
+        <a href="#" class="nav-link active" id="nav-dashboard">
+          <i data-lucide="layout-dashboard"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="#" class="nav-link" id="nav-orders">
+          <i data-lucide="shopping-bag"></i>
+          <span>Orders</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="#" class="nav-link" id="nav-menu">
+          <i data-lucide="book-open"></i>
+          <span>Menu Management</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="#" class="nav-link" id="nav-restaurants">
+          <i data-lucide="store"></i>
+          <span>Restaurants</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="#" class="nav-link" id="nav-analytics">
+          <i data-lucide="bar-chart-3"></i>
+          <span>Analytics</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="nav-links" style="margin-top: auto;">
+      <li class="nav-item">
+        <a href="#" class="nav-link" style="color: #EF4444;">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </a>
+      </li>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header>
+      <div class="header-title">
+        <h1>Dashboard Overview</h1>
+        <p style="color: var(--text-muted); font-size: 0.875rem;">Welcome back, Admin</p>
+      </div>
+      <div class="user-profile">
+        <div class="notifications">
+          <button class="btn" style="background: none; padding: 0.5rem; color: var(--text-muted);">
+            <i data-lucide="bell"></i>
+          </button>
+        </div>
+        <div class="avatar">AD</div>
+      </div>
+    </header>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon" style="background: #E0F2FE; color: #0EA5E9;">
+          <i data-lucide="package"></i>
+        </div>
+        <div class="stat-info">
+          <h3>Total Orders</h3>
+          <p id="stat-total-orders">0</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: #DCFCE7; color: #10B981;">
+          <i data-lucide="indian-rupee"></i>
+        </div>
+        <div class="stat-info">
+          <h3>Total Revenue</h3>
+          <p id="stat-revenue">₹0</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background: #FEF3C7; color: #F59E0B;">
+          <i data-lucide="clock"></i>
+        </div>
+        <div class="stat-info">
+          <h3>Pending Orders</h3>
+          <p id="stat-pending">0</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Orders Table -->
+    <div class="content-card">
+      <div class="card-header">
+        <h2 style="font-size: 1.125rem; font-weight: 600;">Recent Orders</h2>
+        <button class="btn btn-primary" onclick="refreshOrders()">
+          <i data-lucide="refresh-cw" size="16"></i>
+          Refresh
+        </button>
+      </div>
+      <div style="overflow-x: auto;">
+        <table id="orders-table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Type</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="orders-body">
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                Loading orders...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script src="admin.js"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

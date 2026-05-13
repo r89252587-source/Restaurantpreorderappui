@@ -1,0 +1,159 @@
+import { useState, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router";
+import { ArrowLeft, Clock } from "lucide-react";
+import { useCart } from "@/app/context/CartContext";
+import { supabase } from "@/lib/supabase";
+
+export function PreOrderDetailsScreen() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { getTotalPrice } = useCart();
+
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const totalAmount = getTotalPrice();
+
+  // Generate time slots in 15-minute intervals
+  const timeSlots = useMemo(() => {
+    const slots: string[] = [];
+    const now = new Date();
+    const currentMinutes = now.getMinutes();
+    const roundedMinutes = Math.ceil(currentMinutes / 15) * 15;
+
+    now.setMinutes(roundedMinutes);
+    now.setSeconds(0);
+
+    // Generate 16 slots (4 hours worth of 15-minute intervals)
+    for (let i = 0; i < 16; i++) {
+      const time = new Date(now.getTime() + i * 15 * 60 * 1000);
+      const hours = time.getHours();
+      const minutes = time.getMinutes();
+      const ampm = hours >= 12 ? "PM" : "AM";
+      const displayHours = hours % 12 || 12;
+      const displayMinutes = minutes.toString().padStart(2, "0");
+      slots.push(`${displayHours}:${displayMinutes} ${ampm}`);
+    }
+
+    return slots;
+  }, []);
+
+  const handleConfirmOrder = async () => {
+    if (!selectedTimeSlot) {
+      alert("Please select a time slot");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 1. Insert Order
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          order_type: 'pre-booking',
+          total_amount: totalAmount,
+          arrival_time: selectedTimeSlot
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Navigate to confirmation with the real ID
+      navigate(
+        `/order-confirmation?orderId=${orderData.id}&total=${totalAmount}&orderType=pre-booking&time=${encodeURIComponent(selectedTimeSlot)}`
+      );
+    } catch (error) {
+      console.error('Error submitting order:', error);
+      alert('Failed to place order. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F5F5F5] pb-32">
+      {/* Header */}
+      <div className="bg-white px-6 pt-12 pb-6 shadow-sm">
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-4 p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ArrowLeft size={24} className="text-[#1A1A1A]" />
+        </button>
+
+        <h1 className="text-2xl font-semibold text-[#1A1A1A]">Pre-Order Details</h1>
+        <p className="text-[#6B6B6B] text-sm">Complete your booking information</p>
+      </div>
+
+      {/* Content */}
+      <div className="px-6 py-6 space-y-6">
+
+
+        {/* Time to Reach */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <Clock size={24} className="text-[#FF0031]" />
+            <h2 className="text-lg font-semibold text-[#1A1A1A]">
+              Expected Time to Reach Restaurant
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {timeSlots.map((slot) => (
+              <button
+                key={slot}
+                onClick={() => setSelectedTimeSlot(slot)}
+                className={`py-3 px-2 rounded-xl font-medium text-sm transition-all ${
+                  selectedTimeSlot === slot
+                    ? "bg-[#FF0031] text-white shadow-lg shadow-[#FF0031]/20"
+                    : "bg-[#F5F5F5] text-[#1A1A1A] hover:bg-gray-200"
+                }`}
+              >
+                {slot}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Order Summary */}
+        <div className="bg-gradient-to-br from-[#FF0031] to-[#E5002C] rounded-2xl p-6 text-white shadow-lg">
+          <h3 className="font-semibold mb-4">Order Summary</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="opacity-90">Total Amount</span>
+              <span className="font-semibold">₹{totalAmount}</span>
+            </div>
+
+
+            {selectedTimeSlot && (
+              <div className="flex justify-between">
+                <span className="opacity-90">Arrival Time</span>
+                <span className="font-semibold">{selectedTimeSlot}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Confirm Button - Fixed at bottom */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+        <div className="max-w-md mx-auto px-6 py-6">
+          <button
+            onClick={handleConfirmOrder}
+            disabled={!selectedTimeSlot || isSubmitting}
+            className="w-full bg-[#FF0031] text-white rounded-xl py-4 font-medium hover:bg-[#E5002C] transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? "Placing Order..." : "Confirm Order"}
+          </button>
+
+          {!selectedTimeSlot && (
+            <p className="text-center text-sm text-[#6B6B6B] mt-3">
+              Please select a time slot to continue
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
