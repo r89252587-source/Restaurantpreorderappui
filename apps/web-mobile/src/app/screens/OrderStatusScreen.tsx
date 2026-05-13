@@ -1,28 +1,72 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, CheckCircle2, Clock, ChefHat, PackageCheck, Plus } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, ChefHat, PackageCheck, Plus, Loader2 } from "lucide-react";
 import { BottomNav } from "@/app/components/BottomNav";
+import { supabase } from "@/lib/supabase";
 
 type OrderStatus = "confirmed" | "preparing" | "ready";
 
 export function OrderStatusScreen() {
   const navigate = useNavigate();
   const { orderId } = useParams();
-  const [orderStatus, setOrderStatus] = useState<OrderStatus>("preparing");
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [showAddItems, setShowAddItems] = useState(false);
+
+  useEffect(() => {
+    if (!orderId) return;
+
+    const fetchOrder = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orderId)
+          .single();
+
+        if (error) throw error;
+        setOrder(data);
+      } catch (error) {
+        console.error('Error fetching order:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrder();
+
+    // Subscribe to real-time status changes
+    const channel = supabase
+      .channel(`order-${orderId}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'orders',
+        filter: `id=eq.${orderId}`
+      }, payload => {
+        setOrder(payload.new);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orderId]);
+
+  const orderStatus = order?.status || "pending";
 
   const statusSteps = [
     {
-      id: "confirmed",
+      id: "pending",
       label: "Order Confirmed",
       icon: CheckCircle2,
-      completed: true,
+      completed: true, // Always true if order exists
     },
     {
       id: "preparing",
       label: "Being Prepared",
       icon: ChefHat,
-      completed: orderStatus === "preparing" || orderStatus === "ready",
+      completed: orderStatus === "confirmed" || orderStatus === "preparing" || orderStatus === "ready",
     },
     {
       id: "ready",
@@ -39,6 +83,33 @@ export function OrderStatusScreen() {
     { id: "e4", name: "Coke (330ml)", price: 40 },
     { id: "e5", name: "Mineral Water", price: 20 },
   ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
+        <Loader2 size={48} className="text-[#FF0031] animate-spin mb-4" />
+        <h2 className="text-xl font-semibold">Loading Order...</h2>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
+          <ArrowLeft size={32} className="text-[#FF0031]" />
+        </div>
+        <h2 className="text-2xl font-bold mb-2">Order Not Found</h2>
+        <p className="text-[#6B6B6B] mb-8">We couldn't find the order with ID #{orderId}</p>
+        <button 
+          onClick={() => navigate("/restaurants")}
+          className="w-full py-4 bg-[#FF0031] text-white rounded-xl font-medium"
+        >
+          Go Back Home
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] pb-20">
@@ -122,41 +193,21 @@ export function OrderStatusScreen() {
             })}
           </div>
 
-          {/* Demo Status Controls */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-xs text-[#6B6B6B] mb-3">Demo: Change status</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setOrderStatus("confirmed")}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                  orderStatus === "confirmed"
-                    ? "bg-[#FF0031] text-white"
-                    : "bg-gray-200 text-[#6B6B6B]"
-                }`}
-              >
-                Confirmed
-              </button>
-              <button
-                onClick={() => setOrderStatus("preparing")}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                  orderStatus === "preparing"
-                    ? "bg-[#FF0031] text-white"
-                    : "bg-gray-200 text-[#6B6B6B]"
-                }`}
-              >
-                Preparing
-              </button>
-              <button
-                onClick={() => setOrderStatus("ready")}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                  orderStatus === "ready"
-                    ? "bg-[#FF0031] text-white"
-                    : "bg-gray-200 text-[#6B6B6B]"
-                }`}
-              >
-                Ready
-              </button>
-            </div>
+          {/* Order Progress Info */}
+          <div className="mt-4 text-center">
+            {orderStatus === "ready" ? (
+              <p className="text-green-600 font-bold animate-bounce">
+                Pick up your order now!
+              </p>
+            ) : orderStatus === "cancelled" ? (
+              <p className="text-red-600 font-bold">
+                This order was cancelled.
+              </p>
+            ) : (
+              <p className="text-[#6B6B6B] text-sm">
+                Last updated: {new Date(order?.created_at).toLocaleTimeString()}
+              </p>
+            )}
           </div>
         </div>
 
