@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,15 +11,89 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* Auth Overlays */
+    #auth-overlay, #pending-overlay {
+      position: fixed;
+      inset: 0;
+      background: white;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+    .auth-card {
+      max-width: 400px;
+      width: 100%;
+      padding: 3rem;
+      background: white;
+      border-radius: 2rem;
+      box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.1);
+    }
+    .google-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      width: 100%;
+      padding: 1rem;
+      border: 1px solid #E2E8F0;
+      border-radius: 0.75rem;
+      background: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .google-btn:hover {
+      background: #F8FAFC;
+      border-color: #CBD5E1;
+    }
+  </style>
 </head>
-<body>
+
+<body style="display: none;" id="admin-body">
+  <!-- Login Overlay -->
+  <div id="auth-overlay">
+    <div class="auth-card">
+      <div class="logo" style="justify-content: center; color: var(--text-main); margin-bottom: 2rem;">
+        <i data-lucide="utensils" style="color: var(--primary);"></i>
+        <span>QuickBite Admin</span>
+      </div>
+      <h2 style="margin-bottom: 1rem;">Welcome back!</h2>
+      <p style="color: var(--text-muted); margin-bottom: 2.5rem;">Sign in with Google to access the admin panel</p>
+      
+      <button class="google-btn" onclick="loginWithGoogle()">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" width="20">
+        Sign in with Google
+      </button>
+    </div>
+  </div>
+
+  <!-- Pending Access Overlay -->
+  <div id="pending-overlay" style="display: none;">
+    <div class="auth-card">
+      <div class="w-20 h-20 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-6">
+        <i data-lucide="clock" size="40"></i>
+      </div>
+      <h2 style="margin-bottom: 1rem;">Access Pending</h2>
+      <p style="color: var(--text-muted); margin-bottom: 2rem;">
+        Your request to access the admin panel has been sent. Please wait for an administrator to approve your account.
+      </p>
+      <button class="btn" style="width: 100%; justify-content: center;" onclick="supabaseClient.auth.signOut()">
+        Sign Out
+      </button>
+    </div>
+  </div>
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="logo">
       <i data-lucide="utensils"></i>
       <span>QuickBite</span>
     </div>
-    
+
     <ul class="nav-links">
       <li class="nav-item">
         <a href="#" class="nav-link active" id="nav-dashboard">
@@ -51,6 +126,12 @@
         </a>
       </li>
       <li class="nav-item">
+        <a href="#" class="nav-link" id="nav-users">
+          <i data-lucide="users"></i>
+          <span>User Management</span>
+        </a>
+      </li>
+      <li class="nav-item">
         <a href="#" class="nav-link" id="nav-settings">
           <i data-lucide="settings"></i>
           <span>Restaurant Settings</span>
@@ -60,7 +141,7 @@
 
     <div class="nav-links" style="margin-top: auto;">
       <li class="nav-item">
-        <a href="#" class="nav-link" style="color: #EF4444;">
+        <a href="#" class="nav-link" style="color: #EF4444;" onclick="supabaseClient.auth.signOut()">
           <i data-lucide="log-out"></i>
           <span>Logout</span>
         </a>
@@ -265,6 +346,38 @@
       </div>
     </div>
 
+    <!-- User Management View -->
+    <div id="view-users" style="display: none;">
+      <div class="content-card">
+        <div class="card-header">
+          <div class="header-title">
+            <h2 style="font-size: 1.125rem; font-weight: 600;">Access Requests & Roles</h2>
+            <p style="font-size: 0.875rem; color: var(--text-muted);">Manage who can access the admin panel</p>
+          </div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table id="users-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Email</th>
+                <th>Current Role</th>
+                <th>Joined</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="users-body">
+              <tr>
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                  Loading users...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- Menu Item Modal -->
     <div id="menu-modal" class="modal">
       <div class="modal-content">
@@ -274,12 +387,12 @@
         </div>
         <form id="menu-form" class="admin-form">
           <input type="hidden" id="item-id">
-          
+
           <div class="form-group">
             <label>Item Name</label>
             <input type="text" id="item-name" required placeholder="e.g. Paneer Tikka">
           </div>
-          
+
           <div class="form-group">
             <label>Description</label>
             <textarea id="item-description" rows="3" placeholder="Describe the dish..."></textarea>
@@ -347,4 +460,5 @@
     lucide.createIcons();
   </script>
 </body>
+
 </html>

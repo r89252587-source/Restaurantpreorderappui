@@ -4,20 +4,26 @@ const SUPABASE_ANON_KEY = 'sb_publishable_UiFLTQw38cUsMU6tchu04w_zEHxf6uG';
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// State
-let orders = [];
-let menuItems = [];
-let currentView = 'dashboard';
+let currentRestaurant = null;
+let currentProfile = null;
+const RESTAURANT_ID = '11111111-1111-1111-1111-111111111111';
 
 // DOM Elements
+const adminBody = document.getElementById('admin-body');
+const authOverlay = document.getElementById('auth-overlay');
+const pendingOverlay = document.getElementById('pending-overlay');
+
 const navDashboard = document.getElementById('nav-dashboard');
 const navMenu = document.getElementById('nav-menu');
+const navUsers = document.getElementById('nav-users');
 const navSettings = document.getElementById('nav-settings');
 
 const viewDashboard = document.getElementById('view-dashboard');
 const viewMenu = document.getElementById('view-menu');
+const viewUsers = document.getElementById('view-users');
 const viewSettings = document.getElementById('view-settings');
 
+const usersBody = document.getElementById('users-body');
 const ordersBody = document.getElementById('orders-body');
 const menuBody = document.getElementById('menu-body');
 const statTotalOrders = document.getElementById('stat-total-orders');
@@ -31,11 +37,81 @@ const modalTitle = document.getElementById('modal-title');
 
 // Initialize
 async function init() {
+  setupAuth();
   setupNavigation();
+  setupRealtime();
+}
+
+// Auth Logic
+function setupAuth() {
+  supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    if (session) {
+      authOverlay.style.display = 'none';
+      await checkUserRole(session.user);
+    } else {
+      authOverlay.style.display = 'flex';
+      pendingOverlay.style.display = 'none';
+      adminBody.style.display = 'none';
+    }
+  });
+}
+
+async function checkUserRole(user) {
+  try {
+    let { data: profile, error } = await supabaseClient
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (error && error.code === 'PGRST116') {
+      // Profile doesn't exist, create one
+      const { data: newProfile, error: createError } = await supabaseClient
+        .from('profiles')
+        .insert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata.full_name,
+          avatar_url: user.user_metadata.avatar_url,
+          role: 'pending' // Default role
+        })
+        .select()
+        .single();
+      
+      if (createError) throw createError;
+      profile = newProfile;
+    }
+
+    currentProfile = profile;
+
+    if (profile.role === 'admin') {
+      adminBody.style.display = 'flex';
+      pendingOverlay.style.display = 'none';
+      loadAdminData();
+    } else {
+      adminBody.style.display = 'none';
+      pendingOverlay.style.display = 'flex';
+    }
+  } catch (error) {
+    console.error('Error checking role:', error);
+  }
+}
+
+window.loginWithGoogle = async () => {
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + window.location.pathname
+    }
+  });
+  if (error) alert('Login failed: ' + error.message);
+};
+
+async function loadAdminData() {
   await fetchOrders();
   await fetchMenu();
   await fetchRestaurantData();
-  setupRealtime();
+  await fetchUsers();
 }
 
 // Navigation
@@ -44,9 +120,9 @@ function setupNavigation() {
     e.preventDefault();
     switchView('dashboard');
   });
-  navMenu.addEventListener('click', (e) => {
+  navUsers.addEventListener('click', (e) => {
     e.preventDefault();
-    switchView('menu');
+    switchView('users');
   });
   navSettings.addEventListener('click', (e) => {
     e.preventDefault();
@@ -60,17 +136,20 @@ function switchView(view) {
   // Update UI
   viewDashboard.style.display = view === 'dashboard' ? 'block' : 'none';
   viewMenu.style.display = view === 'menu' ? 'block' : 'none';
+  viewUsers.style.display = view === 'users' ? 'block' : 'none';
   viewSettings.style.display = view === 'settings' ? 'block' : 'none';
   
   // Update Nav Links
   navDashboard.classList.toggle('active', view === 'dashboard');
   navMenu.classList.toggle('active', view === 'menu');
+  navUsers.classList.toggle('active', view === 'users');
   navSettings.classList.toggle('active', view === 'settings');
 
   // Update Header Title
   const headerMap = {
     'dashboard': 'Dashboard Overview',
     'menu': 'Menu Management',
+    'users': 'User Management',
     'settings': 'Restaurant Settings'
   };
   document.querySelector('.header-title h1').innerText = headerMap[view];
@@ -389,6 +468,85 @@ window.saveRestaurantSettings = async function() {
     fetchRestaurantData();
   } catch (error) {
     alert('Error saving settings: ' + error.message);
+  }
+};
+
+// --- User Management Logic ---
+
+let profiles = [];
+
+async function fetchUsers() {
+  try {
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    profiles = data || [];
+    renderUsers();
+  } catch (error) {
+    console.error('Error fetching users:', error);
+  }
+}
+
+function renderUsers() {
+  if (profiles.length === 0) {
+    usersBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 3rem;">No users found</td></tr>`;
+    return;
+  }
+
+  usersBody.innerHTML = profiles.map(profile => `
+    <tr>
+      <td>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <img src="${profile.avatar_url || 'https://via.placeholder.com/40'}" style="width: 40px; height: 40px; border-radius: 50%;">
+          <span style="font-weight: 600;">${profile.full_name || 'Anonymous'}</span>
+        </div>
+      </td>
+      <td>${profile.email}</td>
+      <td>
+        <span class="status-badge" style="background: ${profile.role === 'admin' ? '#D1FAE5' : profile.role === 'pending' ? '#FEF3C7' : '#F1F5F9'}; color: ${profile.role === 'admin' ? '#065F46' : profile.role === 'pending' ? '#92400E' : '#475569'};">
+          ${profile.role.toUpperCase()}
+        </span>
+      </td>
+      <td>${new Date(profile.created_at).toLocaleDateString()}</td>
+      <td>
+        <div style="display: flex; gap: 0.5rem;">
+          ${profile.role !== 'admin' ? `
+            <button class="btn btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="updateUserRole('${profile.id}', 'admin')">
+              Make Admin
+            </button>
+          ` : `
+            <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; background: #FEE2E2; color: #991B1B;" onclick="updateUserRole('${profile.id}', 'user')">
+              Revoke Admin
+            </button>
+          `}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+window.updateUserRole = async (id, role) => {
+  if (!confirm(`Are you sure you want to change this user's role to ${role}?`)) return;
+
+  try {
+    const { error } = await supabaseClient
+      .from('profiles')
+      .update({ role })
+      .eq('id', id);
+
+    if (error) throw error;
+    fetchUsers();
+    
+    // If updating current user, force re-check
+    if (id === currentProfile?.id) {
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      checkUserRole(user);
+    }
+  } catch (error) {
+    alert('Error updating role: ' + error.message);
   }
 };
 

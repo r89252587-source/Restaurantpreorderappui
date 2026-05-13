@@ -70,3 +70,24 @@ CREATE POLICY "Allow public select to order_items" ON order_items FOR SELECT USI
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS opening_hours TEXT;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS description TEXT;
+
+-- Create profiles table for roles
+CREATE TABLE profiles (
+  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+  email TEXT,
+  role TEXT DEFAULT 'pending',
+  full_name TEXT,
+  avatar_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Enable RLS
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+CREATE POLICY " Public profiles are viewable by everyone\ ON profiles FOR SELECT USING (true);
+CREATE POLICY \Users can update their own profile\ ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY \Admins can update any profile\ ON profiles FOR UPDATE USING (
+ EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+);
+
