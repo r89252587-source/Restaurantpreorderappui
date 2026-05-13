@@ -28,13 +28,27 @@ export function OrderListScreen() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
+        setLoading(true);
+        // We fetch orders and join with restaurants table
+        // Note: If you get empty results, check if the relationship is correctly defined in Supabase
         const { data, error } = await supabase
           .from('orders')
-          .select('*, restaurants(*)')
+          .select('*, restaurant:restaurants(*)') // Explicitly naming the join 'restaurant'
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        setOrders(data || []);
+        if (error) {
+          console.error('Supabase Error:', error);
+          // Fallback fetch without join if the join fails
+          const { data: simpleData, error: simpleError } = await supabase
+            .from('orders')
+            .select('*')
+            .order('created_at', { ascending: false });
+          
+          if (simpleError) throw simpleError;
+          setOrders(simpleData || []);
+        } else {
+          setOrders(data || []);
+        }
       } catch (error) {
         console.error('Error fetching orders:', error);
       } finally {
@@ -122,7 +136,7 @@ export function OrderListScreen() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-semibold text-[#1A1A1A]">
-                      {order.restaurants?.name || "QuickBite Restaurant"}
+                      {order.restaurant?.name || order.restaurants?.name || "QuickBite Restaurant"}
                     </h3>
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
@@ -134,7 +148,7 @@ export function OrderListScreen() {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-[#6B6B6B]">
                     <MapPin size={14} />
-                    <span className="truncate">{order.restaurants?.location || "Location not available"}</span>
+                    <span className="truncate">{order.restaurant?.location || order.restaurants?.location || "Location not available"}</span>
                   </div>
                 </div>
                 <ChevronRight size={20} className="text-[#6B6B6B] flex-shrink-0 mt-1" />
