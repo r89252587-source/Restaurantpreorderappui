@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Clock, MapPin, ChevronRight } from "lucide-react";
+import { Clock, MapPin, ChevronRight, Loader2 } from "lucide-react";
 import { BottomNav } from "@/app/components/BottomNav";
+import { supabase } from "@/lib/supabase";
 
 type OrderType = "pre-booking" | "takeaway" | "dine-in";
 type OrderStatus = "confirmed" | "preparing" | "ready" | "completed";
@@ -20,55 +22,39 @@ interface Order {
 
 export function OrderListScreen() {
   const navigate = useNavigate();
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock order data
-  const orders: Order[] = [
-    {
-      id: "1",
-      orderId: "12345",
-      restaurantName: "Spice Villa",
-      restaurantLocation: "Connaught Place, New Delhi",
-      orderType: "pre-booking",
-      status: "preparing",
-      totalAmount: 850,
-      items: 4,
-      date: "Today",
-      time: "7:30 PM",
-    },
-    {
-      id: "2",
-      orderId: "12344",
-      restaurantName: "Biryani House",
-      restaurantLocation: "Karol Bagh, New Delhi",
-      orderType: "takeaway",
-      status: "ready",
-      totalAmount: 450,
-      items: 2,
-      date: "Today",
-      time: "6:45 PM",
-    },
-    {
-      id: "3",
-      orderId: "12343",
-      restaurantName: "South Flavors",
-      restaurantLocation: "Lajpat Nagar, New Delhi",
-      orderType: "dine-in",
-      status: "completed",
-      totalAmount: 620,
-      items: 3,
-      date: "Yesterday",
-      time: "8:00 PM",
-    },
-  ];
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*, restaurants(*)')
+          .order('created_at', { ascending: false });
 
-  const getStatusColor = (status: OrderStatus) => {
+        if (error) throw error;
+        setOrders(data || []);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, []);
+
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case "confirmed":
+      case "pending":
         return "bg-blue-100 text-blue-700";
       case "preparing":
         return "bg-yellow-100 text-yellow-700";
       case "ready":
         return "bg-green-100 text-green-700";
+      case "cancelled":
+        return "bg-red-100 text-red-700";
       case "completed":
         return "bg-gray-100 text-gray-600";
       default:
@@ -76,22 +62,12 @@ export function OrderListScreen() {
     }
   };
 
-  const getStatusLabel = (status: OrderStatus) => {
-    switch (status) {
-      case "confirmed":
-        return "Confirmed";
-      case "preparing":
-        return "Preparing";
-      case "ready":
-        return "Ready";
-      case "completed":
-        return "Completed";
-      default:
-        return status;
-    }
+  const getStatusLabel = (status: string) => {
+    if (!status) return "Pending";
+    return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
-  const getOrderTypeLabel = (type: OrderType) => {
+  const getOrderTypeLabel = (type: string) => {
     switch (type) {
       case "pre-booking":
         return "Pre-Booking";
@@ -103,6 +79,15 @@ export function OrderListScreen() {
         return type;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
+        <Loader2 size={48} className="text-[#FF0031] animate-spin mb-4" />
+        <h2 className="text-xl font-semibold">Loading your orders...</h2>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] pb-20">
@@ -129,7 +114,7 @@ export function OrderListScreen() {
           orders.map((order) => (
             <button
               key={order.id}
-              onClick={() => navigate(`/order-status/${order.orderId}`)}
+              onClick={() => navigate(`/order-status/${order.id}`)}
               className="w-full bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all text-left"
             >
               {/* Order Header */}
@@ -137,7 +122,7 @@ export function OrderListScreen() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-semibold text-[#1A1A1A]">
-                      {order.restaurantName}
+                      {order.restaurants?.name || "QuickBite Restaurant"}
                     </h3>
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
@@ -149,7 +134,7 @@ export function OrderListScreen() {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-[#6B6B6B]">
                     <MapPin size={14} />
-                    <span className="truncate">{order.restaurantLocation}</span>
+                    <span className="truncate">{order.restaurants?.location || "Location not available"}</span>
                   </div>
                 </div>
                 <ChevronRight size={20} className="text-[#6B6B6B] flex-shrink-0 mt-1" />
@@ -160,23 +145,18 @@ export function OrderListScreen() {
                 <div className="flex items-center gap-4">
                   <div>
                     <p className="text-xs text-[#6B6B6B] mb-1">Order ID</p>
-                    <p className="font-semibold text-[#1A1A1A]">#{order.orderId}</p>
+                    <p className="font-semibold text-[#1A1A1A]">#{order.id.slice(0, 8).toUpperCase()}</p>
                   </div>
                   <div className="w-px h-8 bg-gray-200"></div>
                   <div>
                     <p className="text-xs text-[#6B6B6B] mb-1">Type</p>
                     <p className="font-medium text-[#1A1A1A] text-sm">
-                      {getOrderTypeLabel(order.orderType)}
+                      {getOrderTypeLabel(order.order_type)}
                     </p>
-                  </div>
-                  <div className="w-px h-8 bg-gray-200"></div>
-                  <div>
-                    <p className="text-xs text-[#6B6B6B] mb-1">Items</p>
-                    <p className="font-medium text-[#1A1A1A] text-sm">{order.items}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-[#FF0031] text-lg">₹{order.totalAmount}</p>
+                  <p className="font-semibold text-[#FF0031] text-lg">₹{order.total_amount}</p>
                 </div>
               </div>
 
@@ -184,7 +164,7 @@ export function OrderListScreen() {
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
                 <Clock size={14} className="text-[#6B6B6B]" />
                 <p className="text-sm text-[#6B6B6B]">
-                  {order.date} at {order.time}
+                  {new Date(order.created_at).toLocaleDateString()} at {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
             </button>
