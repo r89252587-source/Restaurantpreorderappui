@@ -159,18 +159,28 @@ export default function App() {
 // Sub-Views
 function LoginView({ onLogin }: { onLogin: () => void }) {
   return (
-    <div className="fixed inset-0 bg-white flex items-center justify-center p-8 text-center z-[2000]">
-      <div className="max-w-[400px] w-full p-12 rounded-[2rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.1)]">
-        <div className="flex items-center justify-center gap-3 text-2xl font-bold mb-8">
-          <Utensils className="text-[#FF0031]" />
+    <div className="login-container">
+      <div className="login-mesh"></div>
+      <div className="login-card">
+        <div className="login-logo">
+          <Utensils size={32} />
           <span>QuickBite Admin</span>
         </div>
-        <h2 className="text-xl font-bold mb-4">Welcome back!</h2>
-        <p className="text-[#64748B] mb-10">Sign in with Google to access the admin panel</p>
+        <h2 className="text-2xl font-black mb-3 text-[#1E293B]">Welcome back!</h2>
+        <p className="text-[#64748B] mb-10 text-sm leading-relaxed">
+          The ultimate platform to manage your restaurant orders, menu, and staff in one place.
+        </p>
+        
         <button onClick={onLogin} className="google-btn">
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" width="20" />
-          Sign in with Google
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" width="20" alt="Google" />
+          <span className="flex-1 text-center">Sign in with Google</span>
         </button>
+
+        <div className="mt-12 pt-8 border-t border-dashed border-[#E2E8F0]">
+          <p className="text-xs text-[#94A3B8]">
+            Secure login powered by Supabase Auth
+          </p>
+        </div>
       </div>
     </div>
   );
