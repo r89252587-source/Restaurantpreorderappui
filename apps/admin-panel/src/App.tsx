@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { supabase } from './lib/supabase';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { supabase, supabaseConfigError } from './lib/supabase';
 import Login from './screens/Login';
 import AccountStatus from './screens/AccountStatus';
 import Dashboard from './screens/Dashboard';
@@ -18,6 +19,12 @@ export default function App() {
     let mounted = true;
 
     async function init() {
+      if (supabaseConfigError) {
+        setError(`${supabaseConfigError}\n\nPlease update apps/admin-panel/.env and restart the dev server.`);
+        setLoading(false);
+        return;
+      }
+
       let didFinish = false;
       // Safety timeout: use a local flag, not stale state from closure
       const timer = setTimeout(() => {
@@ -25,7 +32,7 @@ export default function App() {
           setError(
             'Initialization timed out.\n\n' +
             'Possible causes:\n' +
-            '1. Your Supabase anon key is missing/invalid in .env\n' +
+            '1. Your Supabase credentials are missing/invalid in .env\n' +
             '2. The "profiles" table does not exist in your Supabase database\n' +
             '3. Your internet connection is unstable\n\n' +
             'Please check apps/admin-panel/.env and your Supabase Dashboard.'
@@ -41,7 +48,7 @@ export default function App() {
 
         if (sessionError) throw sessionError;
         if (!mounted) return;
-        
+
         setSession(session);
         if (session) {
           await checkUserRole(session.user);
@@ -61,7 +68,7 @@ export default function App() {
 
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
       if (!mounted) return;
       setSession(session);
       if (session) {
@@ -116,7 +123,7 @@ export default function App() {
   }
 
   const loginWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({ 
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: window.location.origin
@@ -163,38 +170,38 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route 
-          path="/login" 
-          element={!session ? <Login onLogin={loginWithGoogle} authError={authError} /> : <Navigate to="/" replace />} 
+        <Route
+          path="/login"
+          element={!session ? <Login onLogin={loginWithGoogle} authError={authError} /> : <Navigate to="/" replace />}
         />
-        <Route 
-          path="/onboarding" 
+        <Route
+          path="/onboarding"
           element={
             session && profile ? (
               profile.role === 'admin' ? <Navigate to="/" replace /> :
-              profile.requestforAdmin ? <Navigate to="/account-status" replace /> :
-              <Onboarding profile={profile} onComplete={() => checkUserRole(session.user)} />
+                profile.requestforAdmin ? <Navigate to="/account-status" replace /> :
+                  <Onboarding profile={profile} onComplete={() => checkUserRole(session.user)} />
             ) : <Navigate to="/login" replace />
-          } 
+          }
         />
-        <Route 
-          path="/account-status" 
+        <Route
+          path="/account-status"
           element={
             session && profile ? (
               profile.role === 'admin' ? <Navigate to="/" replace /> :
-              <AccountStatus onSignOut={signOut} />
+                <AccountStatus onSignOut={signOut} />
             ) : <Navigate to="/login" replace />
-          } 
+          }
         />
-        <Route 
-          path="/*" 
+        <Route
+          path="/*"
           element={
             !session ? <Navigate to="/login" replace /> :
-            !profile ? <Navigate to="/login" replace /> :
-            profile.role === 'admin' ? <Dashboard session={session} profile={profile} onSignOut={signOut} /> :
-            profile.requestforAdmin ? <Navigate to="/account-status" replace /> :
-            <Navigate to="/onboarding" replace />
-          } 
+              !profile ? <Navigate to="/login" replace /> :
+                profile.role === 'admin' ? <Dashboard session={session} profile={profile} onSignOut={signOut} /> :
+                  profile.requestforAdmin ? <Navigate to="/account-status" replace /> :
+                    <Navigate to="/onboarding" replace />
+          }
         />
       </Routes>
     </BrowserRouter>

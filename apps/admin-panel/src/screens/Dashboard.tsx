@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, ShoppingBag, BookOpen, Store, BarChart2,
-  Users, Settings, LogOut, Utensils, Bell, Package, Clock, 
+  Users, LogOut, Utensils, Bell, Package, Clock, 
   RefreshCw, Check, X, Plus, Edit2, Trash2, Save, IndianRupee, Menu
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const RESTAURANT_ID = '11111111-1111-1111-1111-111111111111';
 
-export default function Dashboard({ session, profile, onSignOut }: { session: any, profile: any, onSignOut: () => void }) {
+export default function Dashboard({ session: _session, profile, onSignOut }: { session: any, profile: any, onSignOut: () => Promise<any> | void }) {
   const [orders, setOrders] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [restaurant, setRestaurant] = useState<any>(null);
@@ -238,10 +238,10 @@ function OrdersView({ orders, fetchOrders }: { orders: any[], fetchOrders: () =>
   );
 }
 
-function OrdersTable({ orders }: { orders: any[] }) {
+function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void }) {
   async function updateStatus(id: string, status: string) {
     const { error } = await supabase.from('orders').update({ status }).eq('id', id);
-    if (!error) window.location.reload(); // Simple reload for now
+    if (!error) onUpdate();
   }
 
   return (
@@ -453,11 +453,30 @@ function AnalyticsView({ orders }: { orders: any[] }) {
   )
 }
 
-function SettingsView({ restaurant, fetchRestaurant }: { restaurant: any, fetchRestaurant: () => void }) {
+function SettingsView({ restaurant, fetchRestaurant }: { restaurant: any, fetchRestaurant: () => Promise<void> | void }) {
   const [formData, setFormData] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [openTime, setOpenTime] = useState('10:00');
+  const [closeTime, setCloseTime] = useState('23:00');
+
+  function parseOpeningHours(value: string | null | undefined) {
+    const raw = (value || '').trim();
+    const match = raw.match(/(\d{1,2}):(\d{2}).*?(\d{1,2}):(\d{2})/);
+    if (!match) return { open: '10:00', close: '23:00' };
+    return {
+      open: `${match[1].padStart(2, '0')}:${match[2]}`,
+      close: `${match[3].padStart(2, '0')}:${match[4]}`
+    };
+  }
 
   useEffect(() => {
-    if (restaurant) setFormData({ ...restaurant });
+    if (restaurant) {
+      setFormData({ ...restaurant });
+      const parsed = parseOpeningHours(restaurant.opening_hours);
+      setOpenTime(parsed.open);
+      setCloseTime(parsed.close);
+    }
   }, [restaurant]);
 
   if (!formData) return null;
@@ -465,9 +484,21 @@ function SettingsView({ restaurant, fetchRestaurant }: { restaurant: any, fetchR
   return (
     <div className="content-card premium-card animate-fade-in" style={{ maxWidth: '900px', margin: '0 auto', background: 'white', borderRadius: '1.25rem' }}>
       <div className="card-header modern" style={{ background: 'transparent', padding: '2rem 2.5rem', borderBottom: '1px solid #E2E8F0' }}>
-        <h2 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#1E293B' }}>Restaurant Profile</h2>
-        <button className="btn btn-primary premium-hover" onClick={handleSave} style={{ background: '#FC0A3D', color: 'white' }}>
-          <Save size={16} /> Save Changes
+        <div>
+          <h2 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#1E293B' }}>Restaurant Profile</h2>
+          {saveMessage && (
+            <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: saveMessage.type === 'success' ? '#059669' : '#DC2626' }}>
+              {saveMessage.text}
+            </p>
+          )}
+        </div>
+        <button
+          className="btn btn-primary premium-hover"
+          onClick={handleSave}
+          disabled={isSaving}
+          style={{ background: '#FC0A3D', color: 'white', opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}
+        >
+          <Save size={16} /> {isSaving ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
       <div className="admin-form" style={{ padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -488,7 +519,11 @@ function SettingsView({ restaurant, fetchRestaurant }: { restaurant: any, fetchR
         <div className="form-row">
           <div className="form-group">
             <label>Opening Hours</label>
-            <input placeholder="e.g. 10:00 AM - 11:00 PM" value={formData.opening_hours || ''} onChange={e => setFormData({ ...formData, opening_hours: e.target.value })} />
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <input type="time" value={openTime} onChange={e => setOpenTime(e.target.value)} />
+              <span style={{ color: '#64748B', fontWeight: 600 }}>to</span>
+              <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)} />
+            </div>
           </div>
           <div className="form-group">
             <label>Contact Phone</label>
@@ -532,10 +567,42 @@ function SettingsView({ restaurant, fetchRestaurant }: { restaurant: any, fetchR
   );
 
   async function handleSave() {
-    const { error } = await supabase.from('restaurants').update(formData).eq('id', RESTAURANT_ID);
-    if (!error) {
-      alert('Settings saved!');
-      fetchRestaurant();
+    try {
+      setIsSaving(true);
+      setSaveMessage(null);
+      const payload = {
+        ...formData,
+        opening_hours: `${openTime} - ${closeTime}`
+      };
+      const timeoutMs = 15000;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      const { data, error } = await supabase
+        .from('restaurants')
+        .update(payload)
+        .eq('id', RESTAURANT_ID)
+        .select('id')
+        .abortSignal(controller.signal);
+
+      clearTimeout(timeoutId);
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('No restaurant row was updated. Check restaurant ID and update permissions (RLS policy).');
+      }
+
+      await Promise.resolve(fetchRestaurant());
+      setSaveMessage({ type: 'success', text: 'Settings saved successfully.' });
+    } catch (err: any) {
+      console.error('Error saving restaurant settings:', err);
+      if (err?.name === 'AbortError') {
+        setSaveMessage({ type: 'error', text: 'Save request timed out after 15s. Please check your Supabase network/RLS setup.' });
+      } else {
+        setSaveMessage({ type: 'error', text: err.message || 'Failed to save settings.' });
+      }
+    } finally {
+      setIsSaving(false);
     }
   }
 }
