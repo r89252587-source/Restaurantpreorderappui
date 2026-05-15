@@ -14,7 +14,6 @@ interface Profile {
   full_name: string;
   avatar_url: string;
   role: 'pending' | 'admin' | 'rejected';
-  requestforAdmin: boolean;
 }
 
 export default function App() {
@@ -28,7 +27,7 @@ export default function App() {
     try {
       setError(null);
       let { data, error: profileError } = await supabase
-        .from('profiles')
+        .from('adminProfile')
         .select('*')
         .eq('id', user.id)
         .single();
@@ -36,14 +35,13 @@ export default function App() {
       if (profileError && profileError.code === 'PGRST116') {
         // Create new profile if one doesn't exist
         const { data: newProfile, error: createError } = await supabase
-          .from('profiles')
+          .from('adminProfile')
           .insert({
             id: user.id,
             email: user.email,
             full_name: user.user_metadata?.full_name || '',
             avatar_url: user.user_metadata?.avatar_url || '',
-            role: 'pending',
-            requestforAdmin: false,
+            role: 'pending'
           })
           .select('*')
           .single();
@@ -118,7 +116,7 @@ export default function App() {
   };
 
   const canAccessDashboard = profile?.role === 'admin';
-  const hasSubmittedRestaurantData = Boolean(profile?.requestforAdmin);
+  const hasSubmittedRestaurantData = !!profile;
 
   if (loading) {
     return (

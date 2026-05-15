@@ -16,8 +16,8 @@ export default function Onboarding({ profile, onComplete }: { profile: any, onCo
     setLoading(true);
     try {
       const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ requestforAdmin: true } as any)
+        .from('adminProfile')
+        .update({ role: 'pending' } as any)
         .eq('id', profile.id);
 
       if (profileError) throw profileError;

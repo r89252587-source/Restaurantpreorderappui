@@ -7,19 +7,40 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
+function isRestaurantProfileComplete(restaurant: any) {
+  if (!restaurant) return false;
+  return Boolean(
+    String(restaurant.name || '').trim() &&
+    String(restaurant.cuisine || '').trim() &&
+    String(restaurant.location || '').trim() &&
+    String(restaurant.phone || '').trim() &&
+    String(restaurant.opening_hours || '').trim() &&
+    String(restaurant.prep_time || '').trim()
+  );
+}
+
 export default function Dashboard({ session: _session, profile, onSignOut }: { session: any, profile: any, onSignOut: () => Promise<any> | void }) {
   const [orders, setOrders] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [restaurant, setRestaurant] = useState<any>(null);
+  const [restaurantLoading, setRestaurantLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  // default to dashboard if root
+  const currentPath = location.pathname.split('/')[1] || 'dashboard';
 
   useEffect(() => {
     fetchOrders();
     fetchMenu();
     fetchRestaurantData();
   }, []);
+
+  useEffect(() => {
+    if (!restaurantLoading && !isRestaurantProfileComplete(restaurant) && currentPath !== 'restaurants') {
+      navigate('/restaurants', { replace: true });
+    }
+  }, [restaurantLoading, restaurant, currentPath, navigate]);
 
   async function fetchOrders() {
     try {
@@ -58,14 +79,16 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
         .maybeSingle();
       
       if (error) throw error;
-      setRestaurant(data || null);
+      const nextRestaurant = data || null;
+      setRestaurant(nextRestaurant);
+      return nextRestaurant;
     } catch (err: any) {
       console.error('Error fetching restaurant:', err);
+      return null;
+    } finally {
+      setRestaurantLoading(false);
     }
   }
-
-  // default to dashboard if root
-  const currentPath = location.pathname.split('/')[1] || 'dashboard';
 
   return (
     <div className="dashboard-layout">
@@ -87,7 +110,7 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
           <Route path="/" element={<DashboardView orders={orders} fetchOrders={fetchOrders} />} />
           <Route path="/orders" element={<OrdersView orders={orders} fetchOrders={fetchOrders} />} />
           <Route path="/menu" element={<MenuManagementView menuItems={menuItems} fetchMenu={fetchMenu} restaurantId={restaurant?.id} />} />
-          <Route path="/restaurants" element={<SettingsView restaurant={restaurant} fetchRestaurant={fetchRestaurantData} />} />
+          <Route path="/restaurants" element={<SettingsView restaurant={restaurant} fetchRestaurant={fetchRestaurantData} onProfileCompleted={() => navigate('/', { replace: true })} />} />
           <Route path="/analytics" element={<AnalyticsView orders={orders} />} />
         </Routes>
       </main>
@@ -452,7 +475,7 @@ function AnalyticsView({ orders }: { orders: any[] }) {
   )
 }
 
-function SettingsView({ restaurant, fetchRestaurant }: { restaurant: any, fetchRestaurant: () => Promise<void> | void }) {
+function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { restaurant: any, fetchRestaurant: () => Promise<any> | void, onProfileCompleted?: () => void }) {
   const [formData, setFormData] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -470,12 +493,22 @@ function SettingsView({ restaurant, fetchRestaurant }: { restaurant: any, fetchR
   }
 
   useEffect(() => {
-    if (restaurant) {
-      setFormData({ ...restaurant });
-      const parsed = parseOpeningHours(restaurant.opening_hours);
-      setOpenTime(parsed.open);
-      setCloseTime(parsed.close);
-    }
+    const base = restaurant || {
+      name: '',
+      cuisine: '',
+      location: '',
+      opening_hours: '',
+      phone: '',
+      prep_time: '',
+      rating: '',
+      description: '',
+      image: '',
+      services: { preBooking: true, takeaway: true, dineIn: true },
+    };
+    setFormData({ ...base });
+    const parsed = parseOpeningHours(base.opening_hours);
+    setOpenTime(parsed.open);
+    setCloseTime(parsed.close);
   }, [restaurant]);
 
   if (!formData) return null;
@@ -545,7 +578,7 @@ function SettingsView({ restaurant, fetchRestaurant }: { restaurant: any, fetchR
         </div>
         <div className="form-group">
           <label>Cover Image URL</label>
-          <input value={formData.cover_image || ''} onChange={e => setFormData({ ...formData, cover_image: e.target.value })} />
+          <input value={formData.image || ''} onChange={e => setFormData({ ...formData, image: e.target.value })} />
         </div>
         <div className="form-group">
           <label style={{ marginBottom: '0.5rem' }}>Enabled Services</label>
@@ -569,33 +602,63 @@ function SettingsView({ restaurant, fetchRestaurant }: { restaurant: any, fetchR
     try {
       setIsSaving(true);
       setSaveMessage(null);
-      const payload = {
-        ...formData,
-        opening_hours: `${openTime} - ${closeTime}`
-      };
+      
+      // Prepare payload to match database schema
+      const submissionData = { ...formData };
+      
+      // Handle opening hours
+      submissionData.opening_hours = `${openTime} - ${closeTime}`;
+      
+      // Fix numeric rating (Postgres DECIMAL cannot be "")
+      if (submissionData.rating === "" || submissionData.rating === null || submissionData.rating === undefined) {
+        submissionData.rating = 5.0; // Default rating
+      } else {
+        const parsedRating = parseFloat(submissionData.rating);
+        submissionData.rating = isNaN(parsedRating) ? 5.0 : parsedRating;
+      }
+      
+      // Ensure required fields for NOT NULL constraints
+      if (!submissionData.image) {
+        submissionData.image = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80';
+      }
+      
+      if (!submissionData.distance) {
+        submissionData.distance = '0.5 km';
+      }
+
       const timeoutMs = 15000;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      const withTimeout = <T,>(promise: Promise<T>, label: string) =>
+        Promise.race<T>([
+          promise,
+          new Promise<T>((_, reject) =>
+            setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs / 1000}s`)), timeoutMs)
+          ),
+        ]);
 
-      const { data, error } = await supabase
-        .from('restaurants')
-        .update(payload)
-        .eq('id', formData.id)
-        .select('id')
-        .abortSignal(controller.signal);
+      const query = formData.id
+        ? supabase.from('restaurants').update(submissionData).eq('id', formData.id).select('*').single()
+        : supabase.from('restaurants').insert(submissionData).select('*').single();
 
-      clearTimeout(timeoutId);
+      const { data, error } = await withTimeout(Promise.resolve(query), 'Save request');
 
       if (error) throw error;
-      if (!data || data.length === 0) {
+      if (!data) {
         throw new Error('No restaurant row was updated. Check restaurant ID and update permissions (RLS policy).');
       }
 
+      setFormData({ ...data });
       await Promise.resolve(fetchRestaurant());
       setSaveMessage({ type: 'success', text: 'Settings saved successfully.' });
+      if (isRestaurantProfileComplete(data)) {
+        onProfileCompleted?.();
+      }
     } catch (err: any) {
       console.error('Error saving restaurant settings:', err);
-      if (err?.name === 'AbortError') {
+      const message = String(err?.message || '');
+      if (err?.code === '42501' || message.toLowerCase().includes('row-level security')) {
+        setSaveMessage({ type: 'error', text: 'Database RLS blocked this action. Apply admin-panel/supabase/admin-panel-rls.sql in Supabase SQL Editor, then try again.' });
+      } else
+      if (String(err?.message || '').toLowerCase().includes('timed out')) {
         setSaveMessage({ type: 'error', text: 'Save request timed out after 15s. Please check your Supabase network/RLS setup.' });
       } else {
         setSaveMessage({ type: 'error', text: err.message || 'Failed to save settings.' });

@@ -17,18 +17,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    async function handleAuthState(session: Session | null) {
       setSession(session);
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        // Ensure user profile exists in userProfile table
+        const { data: profile, error } = await supabase
+          .from('userProfile')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error && error.code === 'PGRST116') {
+          // Create missing profile
+          await supabase.from('userProfile').insert({
+            id: session.user.id,
+            email: session.user.email,
+            role: 'user'
+          });
+        }
+      }
+      
       setLoading(false);
+    }
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleAuthState(session);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      handleAuthState(session);
     });
 
     return () => {
