@@ -6,12 +6,11 @@ import { supabase } from "@/lib/supabase";
 
 export function TakeawayDetailsScreen() {
   const navigate = useNavigate();
-  const { getTotalPrice } = useCart();
+  const { cart, clearCart, getTotalPrice } = useCart();
+  const totalAmount = getTotalPrice();
 
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const totalAmount = getTotalPrice();
 
   // Generate time slots in 15-minute intervals
   const timeSlots = useMemo(() => {
@@ -43,27 +42,57 @@ export function TakeawayDetailsScreen() {
       return;
     }
 
+    if (cart.length === 0) {
+      alert("Your cart is empty");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // 1. Insert Order
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
           order_type: 'takeaway',
           total_amount: totalAmount,
-          arrival_time: selectedTimeSlot
+          arrival_time: selectedTimeSlot,
+          status: 'pending',
+          otp: otp
         })
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error('Supabase Order Error:', orderError);
+        throw orderError;
+      }
 
+      // 2. Insert Order Items
+      const orderItems = cart.map(item => ({
+        order_id: orderData.id,
+        menu_item_id: item.id,
+        quantity: item.quantity,
+        portion: item.portion || null
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        console.error('Supabase Order Items Error:', itemsError);
+        throw itemsError;
+      }
+
+      // 3. Success - Clear cart and navigate
+      clearCart();
       navigate(
-        `/order-confirmation?orderId=${orderData.id}&total=${totalAmount}&orderType=takeaway&time=${encodeURIComponent(selectedTimeSlot)}`
+        `/order-confirmation?orderId=${orderData.id}&otp=${otp}&total=${totalAmount}&orderType=takeaway&time=${encodeURIComponent(selectedTimeSlot)}`
       );
-    } catch (error) {
-      console.error('Error submitting order:', error);
-      alert('Failed to place order. Please try again.');
+    } catch (error: any) {
+      console.error('Full Error Details:', error);
+      alert(`Failed to place order: ${error.message || 'Please try again.'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -100,11 +129,10 @@ export function TakeawayDetailsScreen() {
               <button
                 key={slot}
                 onClick={() => setSelectedTimeSlot(slot)}
-                className={`py-3 px-2 rounded-xl font-medium text-sm transition-all ${
-                  selectedTimeSlot === slot
+                className={`py-3 px-2 rounded-xl font-medium text-sm transition-all ${selectedTimeSlot === slot
                     ? "bg-[#FF0031] text-white shadow-lg shadow-[#FF0031]/20"
                     : "bg-[#F5F5F5] text-[#1A1A1A] hover:bg-gray-200"
-                }`}
+                  }`}
               >
                 {slot}
               </button>

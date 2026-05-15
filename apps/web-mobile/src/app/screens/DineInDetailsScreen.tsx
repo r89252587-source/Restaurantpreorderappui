@@ -6,15 +6,14 @@ import { supabase } from "@/lib/supabase";
 
 export function DineInDetailsScreen() {
   const navigate = useNavigate();
-  const { getTotalPrice } = useCart();
+  const { cart, clearCart, getTotalPrice } = useCart();
+  const totalAmount = getTotalPrice();
 
   const [numberOfPeople, setNumberOfPeople] = useState(2);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
   const [tableNumber, setTableNumber] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const totalAmount = getTotalPrice();
 
   // Generate next 7 days for date selection
   const availableDates = useMemo(() => {
@@ -72,9 +71,15 @@ export function DineInDetailsScreen() {
       return;
     }
 
+    if (cart.length === 0) {
+      alert("Your cart is empty");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // 1. Insert Order
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -82,15 +87,40 @@ export function DineInDetailsScreen() {
           total_amount: totalAmount,
           arrival_time: selectedTimeSlot,
           reservation_date: selectedDate,
-          table_number: tableNumber || null
+          table_number: tableNumber || null,
+          status: 'pending',
+          otp: otp
         })
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error('Supabase Order Error:', orderError);
+        throw orderError;
+      }
 
+      // 2. Insert Order Items
+      const orderItems = cart.map(item => ({
+        order_id: orderData.id,
+        menu_item_id: item.id,
+        quantity: item.quantity,
+        portion: item.portion || null
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        console.error('Supabase Order Items Error:', itemsError);
+        throw itemsError;
+      }
+
+      // 3. Success - Clear cart and navigate
+      clearCart();
       const params = new URLSearchParams({
         orderId: orderData.id,
+        otp: otp,
         total: totalAmount.toString(),
         orderType: "dine-in",
         people: numberOfPeople.toString(),
@@ -103,9 +133,9 @@ export function DineInDetailsScreen() {
       }
 
       navigate(`/order-confirmation?${params.toString()}`);
-    } catch (error) {
-      console.error('Error submitting order:', error);
-      alert('Failed to place reservation. Please try again.');
+    } catch (error: any) {
+      console.error('Full Error Details:', error);
+      alert(`Failed to place reservation: ${error.message || 'Please try again.'}`);
     } finally {
       setIsSubmitting(false);
     }

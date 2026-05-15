@@ -100,7 +100,7 @@ export function OrderStatusScreen() {
           <ArrowLeft size={32} className="text-[#FF0031]" />
         </div>
         <h2 className="text-2xl font-bold mb-2">Order Not Found</h2>
-        <p className="text-[#6B6B6B] mb-8">We couldn't find the order with ID #{orderId}</p>
+        <p className="text-[#6B6B6B] mb-8">We couldn't find the order with ID #{orderId.slice(0, 8)}</p>
         <button 
           onClick={() => navigate("/restaurants")}
           className="w-full py-4 bg-[#FF0031] text-white rounded-xl font-medium"
@@ -123,16 +123,16 @@ export function OrderStatusScreen() {
         </button>
 
         <h1 className="text-2xl font-semibold text-[#1A1A1A] mb-1">Order Details</h1>
-        <p className="text-[#6B6B6B] text-sm">Order ID: #{orderId}</p>
+        <p className="text-[#6B6B6B] text-sm font-mono">OTP: #{order?.otp || '------'}</p>
       </div>
 
       <div className="px-6 py-6 space-y-6">
-        {/* Order ID Card */}
+        {/* Order OTP Card */}
         <div className="bg-gradient-to-br from-[#FF0031] to-[#E5002C] rounded-2xl p-6 text-white shadow-lg">
-          <p className="text-white/80 text-sm mb-2">Your Order ID</p>
-          <h2 className="text-4xl font-bold tracking-wider mb-4">#{orderId}</h2>
-          <p className="text-white/90 text-sm">
-            Show this ID to the restaurant staff when you arrive
+          <p className="text-white/80 text-sm mb-2 font-medium uppercase tracking-wider">Verification OTP</p>
+          <h2 className="text-5xl font-bold tracking-[0.2em] mb-4">{order?.otp || '------'}</h2>
+          <p className="text-white/90 text-sm italic">
+            Show this OTP to the restaurant staff when you arrive
           </p>
         </div>
 

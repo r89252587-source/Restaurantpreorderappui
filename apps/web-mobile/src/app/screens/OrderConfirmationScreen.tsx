@@ -9,6 +9,7 @@ export function OrderConfirmationScreen() {
   const { clearCart } = useCart();
 
   const orderId = searchParams.get("orderId") || "12345";
+  const otp = searchParams.get("otp") || orderId.slice(0, 6).toUpperCase();
   const total = searchParams.get("total") || "0";
   const orderType = searchParams.get("orderType") || "pre-booking";
   const numberOfPeople = searchParams.get("people") || "";
@@ -33,9 +34,9 @@ export function OrderConfirmationScreen() {
   };
 
   const getInstructionMessage = () => {
-    if (orderType === "takeaway") return "Your food will be ready for pickup at the selected time. Show your order ID when collecting.";
-    if (orderType === "dine-in") return "Your table is reserved. Show your order ID to the staff when you arrive at the restaurant.";
-    return "Your food will be ready when you arrive. Just show your order ID to the staff.";
+    if (orderType === "takeaway") return "Your food will be ready for pickup at the selected time. Show this OTP to the staff when collecting.";
+    if (orderType === "dine-in") return "Your table is reserved. Show this OTP to the staff when you arrive at the restaurant.";
+    return "Your food will be ready when you arrive. Just show this OTP to the staff.";
   };
 
   return (
@@ -53,16 +54,24 @@ export function OrderConfirmationScreen() {
           {getSuccessMessage()}
         </p>
 
-        {/* Order ID Card */}
-        <div className="bg-white rounded-2xl p-6 shadow-lg w-full max-w-sm mb-6">
+        {/* OTP Card */}
+        <div className="bg-white rounded-2xl p-6 shadow-lg w-full max-w-sm mb-6 border-2 border-[#FF0031]/10">
           <div className="text-center mb-6">
-            <p className="text-[#6B6B6B] text-sm mb-2">Order ID</p>
-            <h2 className="text-4xl font-bold text-[#FF0031] tracking-wider truncate px-4">
-              #{orderId.slice(0, 8).toUpperCase()}
+            <p className="text-[#6B6B6B] text-sm mb-2 font-medium uppercase tracking-widest">Verification OTP</p>
+            <h2 className="text-5xl font-bold text-[#FF0031] tracking-[0.2em] px-4">
+              {otp}
             </h2>
+            <p className="text-xs text-[#6B6B6B] mt-4 italic">
+              Show this code to the restaurant staff
+            </p>
           </div>
 
-          <div className="border-t border-gray-200 pt-6 space-y-4">
+          <div className="border-t border-dashed border-gray-200 pt-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[#6B6B6B] text-sm">Order ID</span>
+              <span className="text-xs font-mono text-gray-400">#{orderId.slice(0, 8).toUpperCase()}</span>
+            </div>
+
             <div className="flex items-center justify-between">
               <span className="text-[#6B6B6B]">Order Type</span>
               <span className="font-semibold text-[#FF0031] capitalize">
@@ -135,7 +144,7 @@ export function OrderConfirmationScreen() {
             Track Order
             <ArrowRight size={20} />
           </button>
-          
+
           <button
             onClick={() => navigate("/restaurants")}
             className="w-full bg-[#F5F5F5] text-[#1A1A1A] rounded-xl py-4 font-medium hover:bg-gray-200 transition-colors"

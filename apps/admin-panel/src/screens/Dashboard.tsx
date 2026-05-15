@@ -20,6 +20,7 @@ function isRestaurantProfileComplete(restaurant: any) {
 }
 
 export default function Dashboard({ session: _session, profile, onSignOut }: { session: any, profile: any, onSignOut: () => Promise<any> | void }) {
+  const userId = _session?.user?.id || null;
   const [orders, setOrders] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [restaurant, setRestaurant] = useState<any>(null);
@@ -72,11 +73,27 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
 
   async function fetchRestaurantData() {
     try {
-      const { data, error } = await supabase
-        .from('restaurants')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
+      let data: any = null;
+      let error: any = null;
+
+      if (userId) {
+        const byOwner = await supabase
+          .from('restaurants')
+          .select('*')
+          .eq('owner_id', userId)
+          .limit(1)
+          .maybeSingle();
+        data = byOwner.data;
+        error = byOwner.error;
+      } else {
+        const fallback = await supabase
+          .from('restaurants')
+          .select('*')
+          .limit(1)
+          .maybeSingle();
+        data = fallback.data;
+        error = fallback.error;
+      }
       
       if (error) throw error;
       const nextRestaurant = data || null;
@@ -603,8 +620,15 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
       setIsSaving(true);
       setSaveMessage(null);
       
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
       // Prepare payload to match database schema
       const submissionData = { ...formData };
+      
+      if (userId) {
+        submissionData.owner_id = userId;
+      }
       
       // Handle opening hours
       submissionData.opening_hours = `${openTime} - ${closeTime}`;
@@ -635,15 +659,34 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
           ),
         ]);
 
-      const query = formData.id
-        ? supabase.from('restaurants').update(submissionData).eq('id', formData.id).select('*').single()
-        : supabase.from('restaurants').insert(submissionData).select('*').single();
+      const isNew = !formData.id;
+      const query = isNew
+        ? supabase.from('restaurants').insert(submissionData).select('*').single()
+        : supabase.from('restaurants').update(submissionData).eq('id', formData.id).select('*').single();
 
       const { data, error } = await withTimeout(Promise.resolve(query), 'Save request');
 
       if (error) throw error;
       if (!data) {
         throw new Error('No restaurant row was updated. Check restaurant ID and update permissions (RLS policy).');
+      }
+
+      // If this was a new restaurant, link it to the adminProfile
+      if (isNew && data.id && userId) {
+        const { error: adminProfileError } = await supabase
+          .from('adminProfile')
+          .update({ restaurant_id: data.id })
+          .eq('id', userId);
+        
+        if (adminProfileError) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ restaurant_id: data.id } as any)
+            .eq('id', userId);
+          if (profileError) {
+            console.error('Failed to link restaurant_id to adminProfile/profiles:', { adminProfileError, profileError });
+          }
+        }
       }
 
       setFormData({ ...data });
