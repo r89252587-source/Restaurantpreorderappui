@@ -7,8 +7,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-const RESTAURANT_ID = '11111111-1111-1111-1111-111111111111';
-
 export default function Dashboard({ session: _session, profile, onSignOut }: { session: any, profile: any, onSignOut: () => Promise<any> | void }) {
   const [orders, setOrders] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
@@ -56,11 +54,11 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
       const { data, error } = await supabase
         .from('restaurants')
         .select('*')
-        .eq('id', RESTAURANT_ID)
-        .single();
+        .limit(1)
+        .maybeSingle();
       
       if (error) throw error;
-      setRestaurant(data);
+      setRestaurant(data || null);
     } catch (err: any) {
       console.error('Error fetching restaurant:', err);
     }
@@ -88,7 +86,7 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
         <Routes>
           <Route path="/" element={<DashboardView orders={orders} fetchOrders={fetchOrders} />} />
           <Route path="/orders" element={<OrdersView orders={orders} fetchOrders={fetchOrders} />} />
-          <Route path="/menu" element={<MenuManagementView menuItems={menuItems} fetchMenu={fetchMenu} />} />
+          <Route path="/menu" element={<MenuManagementView menuItems={menuItems} fetchMenu={fetchMenu} restaurantId={restaurant?.id} />} />
           <Route path="/restaurants" element={<SettingsView restaurant={restaurant} fetchRestaurant={fetchRestaurantData} />} />
           <Route path="/analytics" element={<AnalyticsView orders={orders} />} />
         </Routes>
@@ -299,7 +297,7 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
   );
 }
 
-function MenuManagementView({ menuItems, fetchMenu }: { menuItems: any[], fetchMenu: () => void }) {
+function MenuManagementView({ menuItems, fetchMenu, restaurantId }: { menuItems: any[], fetchMenu: () => void, restaurantId?: string }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -417,6 +415,7 @@ function MenuManagementView({ menuItems, fetchMenu }: { menuItems: any[], fetchM
       {modalOpen && (
         <MenuModal 
           item={editingItem} 
+          restaurantId={restaurantId}
           onClose={() => setModalOpen(false)} 
           onSave={() => { setModalOpen(false); fetchMenu(); }} 
         />
@@ -581,7 +580,7 @@ function SettingsView({ restaurant, fetchRestaurant }: { restaurant: any, fetchR
       const { data, error } = await supabase
         .from('restaurants')
         .update(payload)
-        .eq('id', RESTAURANT_ID)
+        .eq('id', formData.id)
         .select('id')
         .abortSignal(controller.signal);
 
@@ -623,7 +622,7 @@ function StatCard({ icon: Icon, bg, gradient, color, title, value }: any) {
   );
 }
 
-function MenuModal({ item, onClose, onSave }: any) {
+function MenuModal({ item, restaurantId, onClose, onSave }: any) {
   const [formData, setFormData] = useState<any>(item || {
     name: '',
     description: '',
@@ -634,7 +633,7 @@ function MenuModal({ item, onClose, onSave }: any) {
     half_price: 0,
     full_price: 0,
     image: '',
-    restaurant_id: RESTAURANT_ID,
+    restaurant_id: restaurantId || null,
     is_countable: true
   });
 

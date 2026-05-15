@@ -1,78 +1,91 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
-import { supabase, supabaseConfigError } from './lib/supabase';
+import type { Session, User } from '@supabase/supabase-js';
+import { supabase } from './lib/supabase';
 import Login from './screens/Login';
 import AccountStatus from './screens/AccountStatus';
 import Dashboard from './screens/Dashboard';
 import Onboarding from './screens/Onboarding';
 
+interface Profile {
+  id: string;
+  email: string;
+  full_name: string;
+  avatar_url: string;
+  role: 'pending' | 'admin' | 'rejected';
+  requestforAdmin: boolean;
+}
+
 export default function App() {
-  const [session, setSession] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
+  const loadProfile = async (user: User) => {
+    try {
+      setError(null);
+      let { data, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-    async function init() {
-      if (supabaseConfigError) {
-        setError(`${supabaseConfigError}\n\nPlease update apps/admin-panel/.env and restart the dev server.`);
-        setLoading(false);
-        return;
+      if (profileError && profileError.code === 'PGRST116') {
+        // Create new profile if one doesn't exist
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || '',
+            avatar_url: user.user_metadata?.avatar_url || '',
+            role: 'pending',
+            requestforAdmin: false,
+          })
+          .select('*')
+          .single();
+
+        if (createError) throw createError;
+        data = newProfile;
+      } else if (profileError) {
+        throw profileError;
       }
 
-      let didFinish = false;
-      // Safety timeout: use a local flag, not stale state from closure
-      const timer = setTimeout(() => {
-        if (mounted && !didFinish) {
-          setError(
-            'Initialization timed out.\n\n' +
-            'Possible causes:\n' +
-            '1. Your Supabase credentials are missing/invalid in .env\n' +
-            '2. The "profiles" table does not exist in your Supabase database\n' +
-            '3. Your internet connection is unstable\n\n' +
-            'Please check apps/admin-panel/.env and your Supabase Dashboard.'
-          );
-          setLoading(false);
-        }
-      }, 10000);
+      setProfile(data as Profile);
+    } catch (err: any) {
+      console.error('Profile error:', err);
+      setError(err.message || 'Failed to load user profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        didFinish = true;
-        clearTimeout(timer);
-
-        if (sessionError) throw sessionError;
-        if (!mounted) return;
-
+  useEffect(() => {
+    // 1. Get initial session
+    supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        setError(sessionError.message);
+        setLoading(false);
+      } else {
         setSession(session);
         if (session) {
-          await checkUserRole(session.user);
+          loadProfile(session.user);
         } else {
           setLoading(false);
         }
-      } catch (err: any) {
-        didFinish = true;
-        clearTimeout(timer);
-        console.error('Init error:', err);
-        if (mounted) {
-          setError(err.message || 'Failed to connect to authentication server');
-          setLoading(false);
-        }
       }
-    }
+    });
 
-    init();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
-      if (!mounted) return;
+    // 2. Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-        await checkUserRole(session.user);
+        setLoading(true);
+        loadProfile(session.user);
       } else {
         setProfile(null);
         setLoading(false);
@@ -80,65 +93,38 @@ export default function App() {
     });
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
-  async function checkUserRole(user: any) {
-    try {
-      setError(null);
-      let { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error && error.code === 'PGRST116') {
-        const { data: newProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert({
-            id: user.id,
-            email: user.email,
-            full_name: user.user_metadata.full_name,
-            avatar_url: user.user_metadata.avatar_url,
-            role: 'pending',
-            requestforAdmin: false
-          })
-          .select()
-          .single();
-        if (createError) throw createError;
-        profile = newProfile;
-      } else if (error) {
-        throw error;
-      }
-
-      setProfile(profile);
-    } catch (err: any) {
-      console.error('Error checking role:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   const loginWithGoogle = async () => {
+    setAuthError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: window.location.origin
-      }
+      options: { redirectTo: window.location.origin },
     });
     if (error) setAuthError(error.message);
   };
 
-  const signOut = () => supabase.auth.signOut();
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const onOnboardingComplete = async () => {
+    if (session) {
+      setLoading(true);
+      await loadProfile(session.user);
+    }
+  };
+
+  const canAccessDashboard = profile?.role === 'admin';
+  const hasSubmittedRestaurantData = Boolean(profile?.requestforAdmin);
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)' }}>
-        <Loader2 style={{ width: '40px', height: '40px', color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
-        <p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>Initializing Application...</p>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0F172A', gap: '1rem' }}>
+        <Loader2 style={{ width: '40px', height: '40px', color: '#3B82F6', animation: 'spin 1s linear infinite' }} />
+        <p style={{ color: '#94A3B8' }}>Initializing Application...</p>
       </div>
     );
   }
@@ -150,19 +136,15 @@ export default function App() {
           <span style={{ fontSize: '2rem' }}>⚠️</span>
         </div>
         <h2 style={{ marginBottom: '0.75rem', color: 'white', fontSize: '1.5rem', fontWeight: 700 }}>Connection Error</h2>
-        <pre style={{ color: '#94A3B8', maxWidth: '500px', marginBottom: '2rem', whiteSpace: 'pre-wrap', fontSize: '0.875rem', lineHeight: 1.6, textAlign: 'left', background: 'rgba(255,255,255,0.05)', padding: '1rem 1.5rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)' }}>{error}</pre>
-        <button onClick={() => window.location.reload()} className="btn btn-primary" style={{ padding: '0.75rem 2rem' }}>
-          Try Again
-        </button>
-      </div>
-    );
-  }
-  // Guard: avoid redirect loop when session exists but profile not yet fetched
-  if (session && !profile && !loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)' }}>
-        <Loader2 style={{ width: '40px', height: '40px', color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
-        <p style={{ marginLeft: '1rem', color: 'var(--text-muted)' }}>Loading user data...</p>
+        <pre style={{ color: '#FCA5A5', maxWidth: '500px', marginBottom: '2rem', whiteSpace: 'pre-wrap', fontSize: '0.875rem', lineHeight: 1.6, textAlign: 'left', background: 'rgba(239,68,68,0.1)', padding: '1rem 1.5rem', borderRadius: '0.75rem', border: '1px solid rgba(239,68,68,0.2)' }}>{error}</pre>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button onClick={() => window.location.reload()} className="btn btn-primary" style={{ padding: '0.75rem 2rem' }}>
+            Try Again
+          </button>
+          <button onClick={signOut} className="btn" style={{ padding: '0.75rem 2rem', background: '#1E293B', color: 'white', border: '1px solid #334155', borderRadius: '0.5rem', cursor: 'pointer' }}>
+            Sign Out
+          </button>
+        </div>
       </div>
     );
   }
@@ -172,35 +154,54 @@ export default function App() {
       <Routes>
         <Route
           path="/login"
-          element={!session ? <Login onLogin={loginWithGoogle} authError={authError} /> : <Navigate to="/" replace />}
+          element={
+            !session ? (
+              <Login onLogin={loginWithGoogle} authError={authError} />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
         />
         <Route
           path="/onboarding"
           element={
-            session && profile ? (
-              profile.role === 'admin' ? <Navigate to="/" replace /> :
-                profile.requestforAdmin ? <Navigate to="/account-status" replace /> :
-                  <Onboarding profile={profile} onComplete={() => checkUserRole(session.user)} />
-            ) : <Navigate to="/login" replace />
+            !session ? (
+              <Navigate to="/login" replace />
+            ) : canAccessDashboard ? (
+              <Navigate to="/" replace />
+            ) : hasSubmittedRestaurantData ? (
+              <Navigate to="/account-status" replace />
+            ) : (
+              <Onboarding profile={profile} onComplete={onOnboardingComplete} />
+            )
           }
         />
         <Route
           path="/account-status"
           element={
-            session && profile ? (
-              profile.role === 'admin' ? <Navigate to="/" replace /> :
-                <AccountStatus onSignOut={signOut} />
-            ) : <Navigate to="/login" replace />
+            !session ? (
+              <Navigate to="/login" replace />
+            ) : canAccessDashboard ? (
+              <Navigate to="/" replace />
+            ) : (
+              <AccountStatus onSignOut={signOut} />
+            )
           }
         />
         <Route
           path="/*"
           element={
-            !session ? <Navigate to="/login" replace /> :
-              !profile ? <Navigate to="/login" replace /> :
-                profile.role === 'admin' ? <Dashboard session={session} profile={profile} onSignOut={signOut} /> :
-                  profile.requestforAdmin ? <Navigate to="/account-status" replace /> :
-                    <Navigate to="/onboarding" replace />
+            !session ? (
+              <Navigate to="/login" replace />
+            ) : !profile ? (
+              <Navigate to="/onboarding" replace />
+            ) : canAccessDashboard ? (
+              <Dashboard session={session} profile={profile} onSignOut={signOut} />
+            ) : hasSubmittedRestaurantData ? (
+              <Navigate to="/account-status" replace />
+            ) : (
+              <Navigate to="/onboarding" replace />
+            )
           }
         />
       </Routes>

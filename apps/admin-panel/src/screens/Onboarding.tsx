@@ -15,21 +15,12 @@ export default function Onboarding({ profile, onComplete }: { profile: any, onCo
     e.preventDefault();
     setLoading(true);
     try {
-      // 1. Update profile with requestforAdmin = true
-      // Note: User needs to add this column to the 'profiles' table in Supabase
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ 
-          requestforAdmin: true,
-          // We can also store the requested restaurant name in metadata if the column doesn't exist
-          // But as per user request, we try to set requestforAdmin=true
-        } as any)
+        .update({ requestforAdmin: true } as any)
         .eq('id', profile.id);
 
       if (profileError) throw profileError;
-
-      // 2. Optionally create a pending restaurant entry or just store the intent
-      // For now, we'll just follow the instruction to "send for review"
       
       onComplete();
     } catch (error: any) {
