@@ -1,17 +1,41 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Search, MapPin, Star, Clock, CalendarClock, ShoppingBag, UtensilsCrossed } from "lucide-react";
+import { Search, MapPin, Star, Clock, CalendarClock, ShoppingBag, UtensilsCrossed, Navigation } from "lucide-react";
 import { BottomNav } from "@/app/components/BottomNav";
+import { useAuth } from "@/app/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 
 type OrderType = "pre-booking" | "takeaway" | "dine-in";
 
 export function RestaurantListScreen() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrderType, setSelectedOrderType] = useState<OrderType>("pre-booking");
   const [restaurants, setRestaurants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState<any>(null);
+
+  function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    return (R * c).toFixed(1); // Distance in km
+  }
+
+  useEffect(() => {
+    if (user) {
+      supabase.from('userProfile').select('latitude, longitude, address').eq('id', user.id).single().then(({ data }) => {
+        if (data) setUserLocation(data);
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchRestaurants = async () => {
@@ -59,11 +83,15 @@ export function RestaurantListScreen() {
     <div className="min-h-screen bg-[#F5F5F5] pb-20">
       {/* Header */}
       <div className="bg-white px-6 pt-12 pb-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <MapPin size={20} className="text-[#FF0031]" />
-          <div>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 bg-[#FF0031]/10 rounded-full flex items-center justify-center flex-shrink-0">
+            <MapPin size={20} className="text-[#FF0031]" />
+          </div>
+          <div className="flex-1 overflow-hidden" onClick={() => navigate('/profile')}>
             <h1 className="text-xl font-semibold text-[#1A1A1A]">Deliver to</h1>
-            <p className="text-sm text-[#6B6B6B]">Indiranagar, Bangalore</p>
+            <p className="text-sm text-[#6B6B6B] truncate">
+              {userLocation?.address || "Set location in profile"}
+            </p>
           </div>
         </div>
 
@@ -160,9 +188,17 @@ export function RestaurantListScreen() {
                   
                   <p className="text-[#6B6B6B] text-sm mb-3">{restaurant.cuisine}</p>
                   
-                  <div className="flex items-center gap-1 text-[#6B6B6B] text-sm">
-                    <Clock size={16} />
-                    <span>{restaurant.prepTime}</span>
+                  <div className="flex items-center justify-between text-[#6B6B6B] text-sm">
+                    <div className="flex items-center gap-1">
+                      <Clock size={16} />
+                      <span>{restaurant.prep_time || "30-40 min"}</span>
+                    </div>
+                    {userLocation?.latitude && restaurant.latitude && (
+                      <div className="flex items-center gap-1 bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-xs font-medium">
+                        <Navigation size={12} />
+                        <span>{calculateDistance(userLocation.latitude, userLocation.longitude, restaurant.latitude, restaurant.longitude)} km</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </button>

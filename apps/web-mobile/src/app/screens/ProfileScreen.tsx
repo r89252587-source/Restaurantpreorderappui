@@ -1,4 +1,6 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
+import { supabase } from "@/lib/supabase";
 import {
   User,
   MapPin,
@@ -20,9 +22,67 @@ export function ProfileScreen() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [userLocation, setUserLocation] = useState<any>(null);
+
+  useEffect(() => {
+    if (user) {
+      const fetchProfile = async () => {
+        const { data } = await supabase.from('userProfile').select('latitude, longitude, address').eq('id', user.id).single();
+        if (data && data.address) {
+          setUserLocation(data);
+        }
+      };
+      fetchProfile();
+    }
+  }, [user]);
+
   const handleLogout = async () => {
     await signOut();
     navigate("/login");
+  };
+
+  const handleGetLocation = async () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        try {
+          // Reverse Geocoding
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const data = await response.json();
+          const address = data?.display_name || "Unknown Location";
+
+          // Save to Supabase
+          if (user) {
+            await supabase.from('userProfile').update({
+              latitude: lat,
+              longitude: lng,
+              address: address
+            }).eq('id', user.id);
+          }
+
+          setUserLocation({ latitude: lat, longitude: lng, address });
+        } catch (error) {
+          console.error("Error saving location:", error);
+          alert("Failed to fetch address details.");
+        } finally {
+          setLocationLoading(false);
+        }
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        alert("Could not get current location. Please allow location access.");
+        setLocationLoading(false);
+      }
+    );
   };
 
   return (
@@ -69,21 +129,30 @@ export function ProfileScreen() {
             <h3 className="font-semibold text-[#1A1A1A]">Account</h3>
           </div>
 
-          <button
-            onClick={() => {}}
-            className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors border-b border-gray-100"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-[#F5F5F5] rounded-full flex items-center justify-center">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 bg-[#F5F5F5] rounded-full flex items-center justify-center flex-shrink-0 mt-1">
                 <MapPin size={20} className="text-[#FF0031]" />
               </div>
-              <div className="text-left">
-                <p className="font-medium text-[#1A1A1A]">Saved Addresses</p>
-                <p className="text-sm text-[#6B6B6B]">Manage your delivery addresses</p>
+              <div className="text-left flex-1">
+                <p className="font-medium text-[#1A1A1A]">My Location</p>
+                {userLocation?.address ? (
+                  <p className="text-sm text-[#6B6B6B] mt-1 mb-3">{userLocation.address}</p>
+                ) : (
+                  <p className="text-sm text-[#6B6B6B] mt-1 mb-3">No location saved yet</p>
+                )}
+                
+                <button 
+                  onClick={handleGetLocation}
+                  disabled={locationLoading}
+                  className="w-full py-2.5 bg-blue-50 text-blue-600 rounded-xl text-sm font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
+                >
+                  <MapPin size={16} />
+                  {locationLoading ? 'Finding you...' : 'Use Current Location'}
+                </button>
               </div>
             </div>
-            <ChevronRight size={20} className="text-[#6B6B6B]" />
-          </button>
+          </div>
 
           <button
             onClick={() => {}}

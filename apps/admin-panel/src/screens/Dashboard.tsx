@@ -367,6 +367,7 @@ function OrdersView({ orders, fetchOrders }: { orders: any[], fetchOrders: () =>
 
 function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void }) {
   const [verifyingOrder, setVerifyingOrder] = useState<any>(null);
+  const [viewingOrder, setViewingOrder] = useState<any>(null);
 
   async function updateStatus(id: string, status: string) {
     const { error } = await supabase.from('orders').update({ status }).eq('id', id);
@@ -395,7 +396,12 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
                </td>
              </tr>
           ) : orders.map((order, idx) => (
-            <tr key={order.id} style={{ animationDelay: `${idx * 0.05}s` }} className="table-row-animate">
+            <tr 
+              key={order.id} 
+              style={{ animationDelay: `${idx * 0.05}s`, cursor: 'pointer' }} 
+              className="table-row-animate hover-row"
+              onClick={() => setViewingOrder(order)}
+            >
               <td className="font-medium text-main">#{order.id.slice(0, 8).toUpperCase()}</td>
               <td>
                 <div className="customer-cell">
@@ -418,7 +424,7 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
                 <div style={{ fontSize: '0.8rem', marginTop: '0.2rem', color: '#94A3B8' }}>{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
               </td>
               <td>
-                <div className="action-buttons">
+                <div className="action-buttons" onClick={e => e.stopPropagation()}>
                   {(!order.status || order.status === 'pending') && (
                     <>
                       <button className="action-btn success tooltip" data-tip="Confirm" onClick={() => updateStatus(order.id, 'confirmed')}><Check size={16} /></button>
@@ -449,6 +455,138 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
           onSuccess={() => { setVerifyingOrder(null); onUpdate(); }} 
         />
       )}
+
+      {viewingOrder && (
+        <OrderDetailsModal 
+          order={viewingOrder} 
+          onClose={() => setViewingOrder(null)} 
+        />
+      )}
+    </div>
+  );
+}
+
+function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchItems() {
+      try {
+        const { data, error } = await supabase
+          .from('order_items')
+          .select(`
+            id, quantity, portion,
+            menu_items (name, image, price, half_price, full_price)
+          `)
+          .eq('order_id', order.id);
+        
+        if (!error && data) {
+          setItems(data);
+        }
+      } catch (err) {
+        console.error('Error fetching order items:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchItems();
+  }, [order.id]);
+
+  return (
+    <div className="modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+      <div className="modal-content" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '0' }}>
+        <div className="modal-header" style={{ padding: '1.5rem', borderBottom: '1px solid #E2E8F0', position: 'sticky', top: 0, background: 'white', zIndex: 10 }}>
+          <div>
+            <h2 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              Order #{order.id.slice(0, 8).toUpperCase()}
+              <span className={`modern-badge status-${order.status || 'pending'}`} style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}>
+                {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Pending'}
+              </span>
+            </h2>
+            <p className="text-muted text-sm mt-1">
+              {new Date(order.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+            </p>
+          </div>
+          <button className="btn-close" onClick={onClose}><X /></button>
+        </div>
+        
+        <div style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem', background: '#F8FAFC', padding: '1rem', borderRadius: '0.75rem' }}>
+            <div>
+              <p className="text-muted text-xs uppercase tracking-wider mb-1">Order Type</p>
+              <p className="font-semibold text-main capitalize">{order.order_type === 'pre-booking' ? 'Pre Booking' : order.order_type}</p>
+            </div>
+            <div>
+              <p className="text-muted text-xs uppercase tracking-wider mb-1">Total Amount</p>
+              <p className="font-bold text-[#10B981] text-lg">₹{order.total_amount}</p>
+            </div>
+            {order.otp && (
+              <div style={{ gridColumn: '1 / -1', borderTop: '1px dashed #CBD5E1', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                <p className="text-muted text-xs uppercase tracking-wider mb-1">Verification OTP</p>
+                <p className="font-mono font-bold text-xl tracking-widest text-[#FC0A3D]">{order.otp}</p>
+              </div>
+            )}
+            {order.number_of_people && (
+              <div>
+                <p className="text-muted text-xs uppercase tracking-wider mb-1">Guests</p>
+                <p className="font-medium text-main">{order.number_of_people} People</p>
+              </div>
+            )}
+            {order.booking_date && (
+              <div>
+                <p className="text-muted text-xs uppercase tracking-wider mb-1">Booking Date</p>
+                <p className="font-medium text-main">{new Date(order.booking_date).toLocaleDateString()}</p>
+              </div>
+            )}
+            {order.booking_time && (
+              <div>
+                <p className="text-muted text-xs uppercase tracking-wider mb-1">Booking Time</p>
+                <p className="font-medium text-main">{order.booking_time}</p>
+              </div>
+            )}
+          </div>
+
+          <h3 className="font-bold text-main mb-4">Order Items</h3>
+          
+          {loading ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Loading items...</div>
+          ) : items.length === 0 ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: '0.75rem' }}>No items found for this order.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {items.map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', border: '1px solid #E2E8F0', borderRadius: '0.75rem' }}>
+                  <div style={{ width: '60px', height: '60px', borderRadius: '0.5rem', overflow: 'hidden', background: '#F1F5F9', flexShrink: 0 }}>
+                    {item.menu_items?.image ? (
+                      <img src={item.menu_items.image} alt={item.menu_items.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }}>No Img</div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <h4 className="font-bold text-main" style={{ fontSize: '1rem', margin: 0 }}>{item.menu_items?.name || 'Unknown Item'}</h4>
+                      <span className="font-bold text-main">
+                        ₹{item.portion === 'half' ? item.menu_items?.half_price : item.portion === 'full' ? item.menu_items?.full_price : item.menu_items?.price}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                      <span className="text-muted text-sm">Qty: {item.quantity}</span>
+                      <span className="text-muted text-sm font-medium">Subtotal: ₹{(item.portion === 'half' ? item.menu_items?.half_price : item.portion === 'full' ? item.menu_items?.full_price : item.menu_items?.price) * item.quantity}</span>
+                    </div>
+                    {item.portion && (
+                      <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#F1F5F9', color: '#475569', borderRadius: '0.25rem', fontSize: '0.8rem', textTransform: 'capitalize' }}>
+                        <strong>Portion:</strong> {item.portion}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

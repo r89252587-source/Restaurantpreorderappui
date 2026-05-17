@@ -12,28 +12,41 @@ export function OrderStatusScreen() {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showAddItems, setShowAddItems] = useState(false);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
 
   useEffect(() => {
     if (!orderId) return;
 
-    const fetchOrder = async () => {
+    const fetchOrderAndItems = async () => {
       try {
-        const { data, error } = await supabase
+        const { data: orderData, error: orderError } = await supabase
           .from('orders')
           .select('*')
           .eq('id', orderId)
           .single();
 
-        if (error) throw error;
-        setOrder(data);
+        if (orderError) throw orderError;
+        setOrder(orderData);
+
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('order_items')
+          .select(`
+            id, quantity, portion,
+            menu_items (name, image, price, half_price, full_price)
+          `)
+          .eq('order_id', orderId);
+
+        if (itemsError) throw itemsError;
+        setOrderItems(itemsData || []);
+
       } catch (error) {
-        console.error('Error fetching order:', error);
+        console.error('Error fetching order details:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchOrder();
+    fetchOrderAndItems();
 
     // Subscribe to real-time status changes
     const channel = supabase
@@ -58,21 +71,21 @@ export function OrderStatusScreen() {
   const statusSteps = [
     {
       id: "pending",
-      label: "Order Confirmed",
-      icon: CheckCircle2,
+      label: "Order Placed",
+      icon: Clock,
       completed: true, // Always true if order exists
     },
     {
-      id: "preparing",
-      label: "Being Prepared",
-      icon: ChefHat,
-      completed: orderStatus === "confirmed" || orderStatus === "preparing" || orderStatus === "ready",
+      id: "confirmed",
+      label: "Order Confirmed",
+      icon: CheckCircle2,
+      completed: orderStatus === "confirmed" || orderStatus === "completed",
     },
     {
-      id: "ready",
-      label: "Ready for Pickup",
+      id: "completed",
+      label: "Order Completed",
       icon: PackageCheck,
-      completed: orderStatus === "ready",
+      completed: orderStatus === "completed",
     },
   ];
 
@@ -123,7 +136,12 @@ export function OrderStatusScreen() {
         </button>
 
         <h1 className="text-2xl font-semibold text-[#1A1A1A] mb-1">Order Details</h1>
-        <p className="text-[#6B6B6B] text-sm font-mono">OTP: #{order?.otp || '------'}</p>
+        <div className="flex justify-between items-center mt-2">
+          <p className="text-[#6B6B6B] text-sm">
+            Type: <span className="font-semibold capitalize text-[#1A1A1A]">{order?.order_type === 'pre-booking' ? 'Pre-Booking' : order?.order_type || 'Takeaway'}</span>
+          </p>
+          <p className="text-[#6B6B6B] text-sm font-mono bg-gray-100 px-2 py-1 rounded">OTP: {order?.otp || '------'}</p>
+        </div>
       </div>
 
       <div className="px-6 py-6 space-y-6">
@@ -176,15 +194,22 @@ export function OrderStatusScreen() {
                     </h4>
                     <p className="text-sm text-[#6B6B6B]">
                       {step.completed ? (
-                        step.id === "ready" && orderStatus === "ready" ? (
+                        step.id === "completed" && orderStatus === "completed" ? (
                           <span className="text-green-600 font-medium">
-                            Your order is ready! 🎉
+                            Order is complete! 🎉
                           </span>
                         ) : (
-                          <span className="text-green-600">Completed</span>
+                          <span className="text-green-600">Done</span>
                         )
                       ) : (
-                        <span>Pending</span>
+                        <span>
+                          Pending
+                          {step.id === "confirmed" && (
+                            <span className="block text-xs mt-1 text-red-500 font-medium">
+                              Your order is not confirmed by restaurant yet!
+                            </span>
+                          )}
+                        </span>
                       )}
                     </p>
                   </div>
@@ -195,9 +220,9 @@ export function OrderStatusScreen() {
 
           {/* Order Progress Info */}
           <div className="mt-4 text-center">
-            {orderStatus === "ready" ? (
-              <p className="text-green-600 font-bold animate-bounce">
-                Pick up your order now!
+            {orderStatus === "completed" ? (
+              <p className="text-green-600 font-bold">
+                Order successfully verified and completed!
               </p>
             ) : orderStatus === "cancelled" ? (
               <p className="text-red-600 font-bold">
@@ -212,57 +237,95 @@ export function OrderStatusScreen() {
         </div>
 
         {/* Estimated Time */}
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center gap-3">
-          <Clock size={24} className="text-blue-600" />
-          <div>
-            <h4 className="font-semibold text-[#1A1A1A]">Estimated Time</h4>
-            <p className="text-sm text-[#6B6B6B]">Your order will be ready in 15-20 minutes</p>
+        {orderStatus !== "completed" && orderStatus !== "cancelled" && (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center gap-3">
+            <Clock size={24} className="text-blue-600" />
+            <div>
+              <h4 className="font-semibold text-[#1A1A1A]">Estimated Time</h4>
+              <p className="text-sm text-[#6B6B6B]">Your order will be ready in 15-20 minutes</p>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Add Extra Items */}
-        <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
-          <button
-            onClick={() => setShowAddItems(!showAddItems)}
-            className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#FF0031] rounded-full flex items-center justify-center">
-                <Plus size={20} className="text-white" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-[#1A1A1A]">Add Extra Items</h3>
-                <p className="text-sm text-[#6B6B6B]">Drinks, rotis, and more</p>
-              </div>
-            </div>
-            <div
-              className={`transition-transform ${
-                showAddItems ? "rotate-45" : "rotate-0"
-              }`}
-            >
-              <Plus size={20} className="text-[#6B6B6B]" />
-            </div>
-          </button>
-
-          {showAddItems && (
-            <div className="px-6 pb-6 space-y-3 border-t border-gray-200 pt-4">
-              {extraItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between p-3 bg-[#F5F5F5] rounded-xl"
-                >
-                  <div>
-                    <h4 className="font-medium text-[#1A1A1A]">{item.name}</h4>
-                    <p className="text-sm text-[#6B6B6B]">₹{item.price}</p>
+        {/* Ordered Items */}
+        {orderItems.length > 0 && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold text-[#1A1A1A] mb-4">Ordered Items</h3>
+            <div className="space-y-4">
+              {orderItems.map((item) => (
+                <div key={item.id} className="flex gap-4 border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-[#F5F5F5] flex-shrink-0">
+                    {item.menu_items?.image ? (
+                      <img src={item.menu_items.image} alt={item.menu_items.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No Img</div>
+                    )}
                   </div>
-                  <button className="px-6 py-2 bg-[#FF0031] text-white rounded-lg text-sm font-medium hover:bg-[#E5002C] transition-colors">
-                    Add
-                  </button>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-medium text-[#1A1A1A]">{item.menu_items?.name || 'Unknown Item'}</h4>
+                      <span className="font-medium text-[#1A1A1A]">
+                        ₹{(item.portion === 'half' ? item.menu_items?.half_price : item.portion === 'full' ? item.menu_items?.full_price : item.menu_items?.price) * item.quantity}
+                      </span>
+                    </div>
+                    <div className="text-sm text-[#6B6B6B] mt-1 flex justify-between">
+                      <span>Qty: {item.quantity}</span>
+                      {item.portion && (
+                        <span className="capitalize px-2 py-0.5 bg-gray-100 rounded text-xs">{item.portion} Portion</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Add Extra Items */}
+        {orderStatus !== "completed" && orderStatus !== "cancelled" && (
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+            <button
+              onClick={() => setShowAddItems(!showAddItems)}
+              className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#FF0031] rounded-full flex items-center justify-center">
+                  <Plus size={20} className="text-white" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold text-[#1A1A1A]">Add Extra Items</h3>
+                  <p className="text-sm text-[#6B6B6B]">Drinks, rotis, and more</p>
+                </div>
+              </div>
+              <div
+                className={`transition-transform ${
+                  showAddItems ? "rotate-45" : "rotate-0"
+                }`}
+              >
+                <Plus size={20} className="text-[#6B6B6B]" />
+              </div>
+            </button>
+
+            {showAddItems && (
+              <div className="px-6 pb-6 space-y-3 border-t border-gray-200 pt-4">
+                {extraItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-3 bg-[#F5F5F5] rounded-xl"
+                  >
+                    <div>
+                      <h4 className="font-medium text-[#1A1A1A]">{item.name}</h4>
+                      <p className="text-sm text-[#6B6B6B]">₹{item.price}</p>
+                    </div>
+                    <button className="px-6 py-2 bg-[#FF0031] text-white rounded-lg text-sm font-medium hover:bg-[#E5002C] transition-colors">
+                      Add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Restaurant Info */}
         <div className="bg-white rounded-2xl p-6 shadow-sm">

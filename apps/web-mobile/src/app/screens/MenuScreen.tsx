@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, ShoppingCart, Leaf, Star, MapPin, FileText, X, CalendarClock, ShoppingBag, UtensilsCrossed, Search } from "lucide-react";
 import { useCart } from "@/app/context/CartContext";
+import { useAuth } from "@/app/context/AuthContext";
 import { Input } from "@/app/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { useEffect } from "react";
@@ -20,9 +21,32 @@ export function MenuScreen() {
   const [selectedOrderType, setSelectedOrderType] = useState<OrderType>("pre-booking");
   const [showPdfModal, setShowPdfModal] = useState(false);
 
+  const { user } = useAuth();
   const [restaurant, setRestaurant] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState<any>(null);
+
+  function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    return (R * c).toFixed(1);
+  }
+
+  useEffect(() => {
+    if (user) {
+      supabase.from('userProfile').select('latitude, longitude').eq('id', user.id).single().then(({ data }) => {
+        if (data) setUserLocation(data);
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -119,8 +143,17 @@ export function MenuScreen() {
             <span className="text-[#6B6B6B] text-sm">Google Rating</span>
           </div>
           <div className="flex items-center gap-2">
-            <MapPin size={18} className="text-[#6B6B6B]" />
-            <span className="text-[#1A1A1A] font-medium">{restaurant?.distance}</span>
+            {userLocation?.latitude && restaurant?.latitude ? (
+              <div className="flex items-center gap-1 bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-sm font-medium">
+                <MapPin size={14} />
+                <span>{calculateDistance(userLocation.latitude, userLocation.longitude, restaurant.latitude, restaurant.longitude)} km away</span>
+              </div>
+            ) : (
+              <>
+                <MapPin size={18} className="text-[#6B6B6B]" />
+                <span className="text-[#1A1A1A] font-medium">{restaurant?.distance || 'Distance unknown'}</span>
+              </>
+            )}
           </div>
         </div>
         <div className="mt-3 flex items-start gap-2">
