@@ -212,8 +212,14 @@ function Header({ viewTitle, userProfile, onMenuClick }: { viewTitle: string, us
 
 // Data Views
 function DashboardView({ orders, fetchOrders }: { orders: any[], fetchOrders: () => void }) {
+  const [otpSearch, setOtpSearch] = useState('');
   const totalRevenue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
   const pendingCount = orders.filter(o => o.status === 'pending').length;
+
+  const confirmedOrders = orders.filter(o => o.status === 'confirmed');
+  const filteredConfirmedOrders = otpSearch.trim()
+    ? confirmedOrders.filter(o => o.otp && o.otp.includes(otpSearch.trim()))
+    : confirmedOrders;
 
   return (
     <div className="dashboard-view-container animate-fade-in">
@@ -241,6 +247,36 @@ function DashboardView({ orders, fetchOrders }: { orders: any[], fetchOrders: ()
         />
       </div>
       
+      <div className="content-card premium-card" style={{ marginBottom: '2rem', border: '1px solid #10B981' }}>
+        <div className="card-header modern" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ flex: '1 1 auto' }}>
+            <h2 className="text-lg font-bold" style={{ color: '#059669' }}>Confirmed Orders</h2>
+            <p className="text-muted text-sm">Awaiting OTP verification from customer</p>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input 
+              type="text" 
+              placeholder="Search by OTP..." 
+              value={otpSearch}
+              onChange={(e) => setOtpSearch(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              style={{
+                padding: '0.6rem 1rem',
+                borderRadius: '0.5rem',
+                border: '1px solid #10B981',
+                outline: 'none',
+                width: '180px',
+                letterSpacing: otpSearch ? '0.2em' : 'normal',
+                fontFamily: otpSearch ? 'monospace' : 'inherit'
+              }}
+            />
+            <button className="btn btn-primary premium-hover" style={{ background: '#10B981', color: 'white' }} onClick={fetchOrders}>
+              <RefreshCw size={16} /> Refresh
+            </button>
+          </div>
+        </div>
+        <OrdersTable orders={filteredConfirmedOrders} onUpdate={fetchOrders} />
+      </div>
+      
       <div className="content-card premium-card">
         <div className="card-header modern">
           <div>
@@ -258,10 +294,21 @@ function DashboardView({ orders, fetchOrders }: { orders: any[], fetchOrders: ()
 }
 
 function OrdersView({ orders, fetchOrders }: { orders: any[], fetchOrders: () => void }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const filteredOrders = orders.filter(order => {
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    const matchesSearch = !searchQuery.trim() || 
+      order.id.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+      (order.otp && order.otp.includes(searchQuery.trim()));
+    return matchesStatus && matchesSearch;
+  });
+
   return (
     <div className="animate-fade-in">
       <div className="content-card premium-card">
-        <div className="card-header modern">
+        <div className="card-header modern" style={{ paddingBottom: '1.5rem' }}>
           <div>
             <h2 className="text-lg font-bold">All Orders</h2>
             <p className="text-muted text-sm">Full order history and status</p>
@@ -270,13 +317,46 @@ function OrdersView({ orders, fetchOrders }: { orders: any[], fetchOrders: () =>
             <RefreshCw size={16} /> Refresh
           </button>
         </div>
-        <OrdersTable orders={orders} onUpdate={fetchOrders} />
+
+        <div className="filters-bar" style={{ display: 'flex', gap: '1rem', padding: '0 1.5rem 1.5rem 1.5rem', flexWrap: 'wrap' }}>
+          <div className="search-wrapper" style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
+             <input 
+               type="text" 
+               placeholder="Search by Order ID or OTP..." 
+               value={searchQuery}
+               onChange={e => setSearchQuery(e.target.value)}
+               style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: '1px solid #E2E8F0', outline: 'none' }}
+             />
+          </div>
+          <div className="category-filters" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {['all', 'pending', 'confirmed', 'completed', 'cancelled'].map(status => (
+              <button 
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`btn ${statusFilter === status ? 'btn-primary' : ''}`}
+                style={{ 
+                  textTransform: 'capitalize', 
+                  padding: '0.75rem 1rem', 
+                  background: statusFilter === status ? 'var(--primary)' : 'white', 
+                  border: '1px solid #E2E8F0', 
+                  color: statusFilter === status ? 'white' : 'var(--text-main)' 
+                }}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <OrdersTable orders={filteredOrders} onUpdate={fetchOrders} />
       </div>
     </div>
   );
 }
 
 function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void }) {
+  const [verifyingOrder, setVerifyingOrder] = useState<any>(null);
+
   async function updateStatus(id: string, status: string) {
     const { error } = await supabase.from('orders').update({ status }).eq('id', id);
     if (!error) onUpdate();
@@ -292,7 +372,7 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
             <th>Type</th>
             <th>Amount</th>
             <th>Status</th>
-            <th>Date</th>
+            <th>Date & Time</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -322,17 +402,143 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
               </td>
               <td className="font-bold">₹{order.total_amount}</td>
               <td><span className={`modern-badge status-${order.status || 'pending'}`}>{order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Pending'}</span></td>
-              <td className="text-muted">{new Date(order.created_at).toLocaleDateString()}</td>
+              <td className="text-muted">
+                <div style={{ fontWeight: 500 }}>{new Date(order.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                <div style={{ fontSize: '0.8rem', marginTop: '0.2rem', color: '#94A3B8' }}>{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+              </td>
               <td>
                 <div className="action-buttons">
-                  <button className="action-btn success tooltip" data-tip="Confirm" onClick={() => updateStatus(order.id, 'confirmed')}><Check size={16} /></button>
-                  <button className="action-btn danger tooltip" data-tip="Cancel" onClick={() => updateStatus(order.id, 'cancelled')}><X size={16} /></button>
+                  {(!order.status || order.status === 'pending') && (
+                    <>
+                      <button className="action-btn success tooltip" data-tip="Confirm" onClick={() => updateStatus(order.id, 'confirmed')}><Check size={16} /></button>
+                      <button className="action-btn danger tooltip" data-tip="Cancel" onClick={() => updateStatus(order.id, 'cancelled')}><X size={16} /></button>
+                    </>
+                  )}
+                  {order.status === 'confirmed' && (
+                    <button className="btn btn-primary premium-hover" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '0.5rem' }} onClick={() => setVerifyingOrder(order)}>
+                      Verify & Complete
+                    </button>
+                  )}
+                  {order.status === 'completed' && order.otp_verified_at && (
+                    <span className="text-muted" style={{ fontSize: '0.75rem', display: 'block', marginTop: '0.2rem' }}>
+                      Verified: {new Date(order.otp_verified_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
                 </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {verifyingOrder && (
+        <OtpVerifyModal 
+          order={verifyingOrder} 
+          onClose={() => setVerifyingOrder(null)} 
+          onSuccess={() => { setVerifyingOrder(null); onUpdate(); }} 
+        />
+      )}
+    </div>
+  );
+}
+
+function OtpVerifyModal({ order, onClose, onSuccess }: { order: any, onClose: () => void, onSuccess: () => void }) {
+  const [otpInput, setOtpInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleVerify(e: React.FormEvent) {
+    e.preventDefault();
+    if (otpInput.length !== 6) {
+      setError('Please enter a 6-digit OTP');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', order.id)
+        .eq('otp', otpInput)
+        .single();
+        
+      if (fetchError || !data) {
+        setError("Invalid OTP. Please check with the customer.");
+        setLoading(false);
+        return;
+      }
+
+      if (data.otp_expires_at && new Date(data.otp_expires_at) < new Date()) {
+        setError("OTP has expired. Ask customer to regenerate.");
+        setLoading(false);
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'completed', 
+          otp_verified_at: new Date().toISOString() 
+        })
+        .eq('id', order.id);
+
+      if (updateError) throw updateError;
+      
+      onSuccess();
+    } catch (err: any) {
+      setError(err.message || 'Failed to verify OTP');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center', padding: '0' }}>
+        <div className="modal-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+          <h2 style={{ fontSize: '1.25rem' }}>Verify Order OTP</h2>
+          <button className="btn-close" onClick={onClose}><X /></button>
+        </div>
+        <form onSubmit={handleVerify} style={{ padding: '1.5rem 2rem' }}>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+            Enter the 6-digit OTP provided by the customer to complete order #{order.id.slice(0, 8).toUpperCase()}
+          </p>
+          
+          <input 
+            type="text" 
+            inputMode="numeric" 
+            maxLength={6} 
+            value={otpInput}
+            onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
+            autoFocus
+            style={{ 
+              width: '100%', 
+              textAlign: 'center', 
+              fontSize: '2rem', 
+              letterSpacing: '0.5em', 
+              padding: '1rem', 
+              borderRadius: '0.75rem', 
+              border: '2px solid #E2E8F0',
+              marginBottom: '1rem',
+              outline: 'none'
+            }} 
+            placeholder="------"
+          />
+          
+          {error && <p style={{ color: '#DC2626', fontSize: '0.875rem', marginBottom: '1rem', fontWeight: 500 }}>{error}</p>}
+          
+          <button 
+            type="submit" 
+            disabled={loading || otpInput.length !== 6}
+            className="btn btn-primary"
+            style={{ width: '100%', padding: '0.875rem', fontSize: '1rem' }}
+          >
+            {loading ? 'Verifying...' : 'Verify OTP & Complete Order'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
