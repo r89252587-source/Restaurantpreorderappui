@@ -6,6 +6,17 @@ import {
   RefreshCw, Check, X, Plus, Edit2, Trash2, Save, IndianRupee, Menu
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix Leaflet icon issue in React
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 function isRestaurantProfileComplete(restaurant: any) {
   if (!restaurant) return false;
@@ -704,6 +715,7 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [openTime, setOpenTime] = useState('10:00');
   const [closeTime, setCloseTime] = useState('23:00');
+  const [mapPosition, setMapPosition] = useState<any>(null);
 
   function parseOpeningHours(value: string | null | undefined) {
     const raw = (value || '').trim();
@@ -720,6 +732,8 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
       name: '',
       cuisine: '',
       location: '',
+      latitude: null,
+      longitude: null,
       opening_hours: '',
       phone: '',
       prep_time: '',
@@ -732,7 +746,45 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
     const parsed = parseOpeningHours(base.opening_hours);
     setOpenTime(parsed.open);
     setCloseTime(parsed.close);
+
+    if (base.latitude && base.longitude) {
+      setMapPosition({ lat: parseFloat(base.latitude), lng: parseFloat(base.longitude) });
+    } else {
+      setMapPosition(null);
+    }
   }, [restaurant]);
+
+  const handleLocationUpdate = async (lat: number, lng: number) => {
+    setFormData((prev: any) => ({ ...prev, latitude: lat, longitude: lng }));
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const data = await response.json();
+      if (data && data.display_name) {
+         setFormData((prev: any) => ({ ...prev, location: data.display_name, latitude: lat, longitude: lng }));
+      }
+    } catch (e) {
+      console.error("Reverse geocoding failed", e);
+    }
+  };
+
+  const handleLocateMe = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setMapPosition({ lat, lng });
+          handleLocationUpdate(lat, lng);
+        },
+        (error) => {
+          console.error("Geolocation error:", error);
+          alert("Could not get current location. Please allow location access or click on the map.");
+        }
+      );
+    } else {
+      alert("Geolocation is not supported by your browser.");
+    }
+  };
 
   if (!formData) return null;
 
@@ -767,9 +819,35 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
             <input value={formData.cuisine || ''} onChange={e => setFormData({ ...formData, cuisine: e.target.value })} />
           </div>
         </div>
-        <div className="form-group">
-          <label>Location Address</label>
-          <textarea value={formData.location || ''} onChange={e => setFormData({ ...formData, location: e.target.value })} rows={2} />
+        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <label style={{ margin: 0 }}>Restaurant Location</label>
+            <button 
+              type="button" 
+              onClick={handleLocateMe}
+              className="btn btn-ghost" 
+              style={{ fontSize: '0.85rem', padding: '0.4rem 0.75rem', color: '#10B981', border: '1px solid #10B981', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '0.5rem' }}
+            >
+              📍 Use Current Location
+            </button>
+          </div>
+          <div style={{ height: '300px', width: '100%', borderRadius: '0.75rem', overflow: 'hidden', marginBottom: '1rem', border: '2px solid #E2E8F0', zIndex: 0 }}>
+            <MapContainer center={mapPosition || { lat: 20.5937, lng: 78.9629 }} zoom={mapPosition ? 15 : 4} style={{ height: '100%', width: '100%', zIndex: 1 }}>
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; OpenStreetMap'
+              />
+              <MapPanController position={mapPosition} />
+              <LocationMarker position={mapPosition} setPosition={setMapPosition} onLocationUpdate={handleLocationUpdate} />
+            </MapContainer>
+          </div>
+          <textarea 
+            placeholder="Address will auto-fill when you click on the map..."
+            value={formData.location || ''} 
+            onChange={e => setFormData({ ...formData, location: e.target.value })} 
+            rows={2} 
+            style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #E2E8F0', outline: 'none' }}
+          />
         </div>
         <div className="form-row">
           <div className="form-group">
@@ -1045,4 +1123,27 @@ function MenuModal({ item, restaurantId, onClose, onSave }: any) {
       </div>
     </div>
   );
+}
+
+function LocationMarker({ position, setPosition, onLocationUpdate }: any) {
+  useMapEvents({
+    click(e) {
+      setPosition(e.latlng);
+      onLocationUpdate(e.latlng.lat, e.latlng.lng);
+    },
+  });
+
+  return position === null ? null : (
+    <Marker position={position}></Marker>
+  );
+}
+
+function MapPanController({ position }: { position: any }) {
+  const map = useMap();
+  useEffect(() => {
+    if (position) {
+      map.flyTo(position, 16);
+    }
+  }, [position, map]);
+  return null;
 }
