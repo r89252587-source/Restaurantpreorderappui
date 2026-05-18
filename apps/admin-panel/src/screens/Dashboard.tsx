@@ -576,7 +576,7 @@ function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void
         </div>
 
         <div style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem', background: '#F8FAFC', padding: '1rem', borderRadius: '0.75rem' }}>
+          <div className="responsive-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem', background: '#F8FAFC', padding: '1rem', borderRadius: '0.75rem' }}>
             <div>
               <p className="text-muted text-xs uppercase tracking-wider mb-1">Order Type</p>
               <p className="font-semibold text-main capitalize">{order.order_type === 'pre-booking' ? 'Pre Booking' : order.order_type}</p>
@@ -1097,7 +1097,7 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
         </div>
         <div className="form-group">
           <label style={{ marginBottom: '0.5rem' }}>Enabled Services</label>
-          <div style={{ display: 'flex', gap: '2rem', background: '#F8FAFC', padding: '1.25rem', borderRadius: '0.75rem' }}>
+          <div className="services-toggles" style={{ display: 'flex', gap: '2rem', background: '#F8FAFC', padding: '1.25rem', borderRadius: '0.75rem' }}>
             <label className="checkbox-label">
               <input type="checkbox" checked={formData.services?.preBooking || false} onChange={e => setFormData({ ...formData, services: { ...formData.services, preBooking: e.target.checked } })} /> Pre-Order
             </label>

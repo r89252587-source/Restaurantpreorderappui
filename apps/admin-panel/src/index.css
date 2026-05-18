@@ -172,6 +172,43 @@ body {
   .main-content {
     padding: 1rem;
   }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 1rem;
+  }
+
+  .filters-bar {
+    flex-direction: column;
+    padding: 0 1rem 1rem 1rem !important;
+  }
+
+  .search-wrapper {
+    min-width: 100% !important;
+  }
+
+  .category-filters {
+    justify-content: flex-start;
+  }
+
+  .responsive-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .services-toggles {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+  
+  .modal-content {
+    padding: 1rem !important;
+  }
+  
+  .login-card {
+    padding: 2rem 1.5rem !important;
+    margin: 1rem;
+  }
 }
 
 header {
