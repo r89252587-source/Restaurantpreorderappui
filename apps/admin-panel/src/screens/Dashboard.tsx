@@ -143,6 +143,7 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
           viewTitle={currentPath}
           userProfile={profile}
           onMenuClick={() => setSidebarOpen(true)}
+          onSignOut={onSignOut}
         />
 
         <Routes>
@@ -198,7 +199,9 @@ function Sidebar({ currentView, setView, onSignOut, isOpen }: { currentView: str
   );
 }
 
-function Header({ viewTitle, userProfile, onMenuClick }: { viewTitle: string, userProfile: any, onMenuClick: () => void }) {
+function Header({ viewTitle, userProfile, onMenuClick, onSignOut }: { viewTitle: string, userProfile: any, onMenuClick: () => void, onSignOut: () => void }) {
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
   const titles: Record<string, string> = {
     dashboard: 'Dashboard Overview',
     orders: 'Orders Management',
@@ -224,8 +227,27 @@ function Header({ viewTitle, userProfile, onMenuClick }: { viewTitle: string, us
             <Bell size={20} />
           </button>
         </div>
-        <div className="avatar">
-          {userProfile?.avatar_url ? <img src={userProfile.avatar_url} style={{ width: '100%', height: '100%', borderRadius: '50%' }} /> : 'AD'}
+        <div style={{ position: 'relative' }}>
+          <button
+            className="avatar"
+            onClick={() => setProfileMenuOpen(prev => !prev)}
+            style={{ border: 'none', cursor: 'pointer', padding: 0 }}
+          >
+            {userProfile?.avatar_url ? <img src={userProfile.avatar_url} style={{ width: '100%', height: '100%', borderRadius: '50%' }} /> : 'AD'}
+          </button>
+          {profileMenuOpen && (
+            <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: '150px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '0.75rem', boxShadow: '0 10px 25px rgba(0,0,0,0.08)', zIndex: 100 }}>
+              <button
+                onClick={() => {
+                  setProfileMenuOpen(false);
+                  onSignOut();
+                }}
+                style={{ width: '100%', padding: '0.75rem 1rem', textAlign: 'left', background: 'transparent', border: 'none', color: '#DC2626', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
@@ -380,14 +402,22 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
   const [verifyingOrder, setVerifyingOrder] = useState<any>(null);
   const [viewingOrder, setViewingOrder] = useState<any>(null);
 
+  const getCustomerName = (order: any) =>
+    order.customer_name || order.customer_full_name || order.full_name || order.name || 'Guest User';
+  const getCustomerPhone = (order: any) =>
+    order.customer_phone || order.phone || order.mobile || order.contact_phone || 'Not provided';
+  const getExpectedTime = (order: any) => order.arrival_time || order.booking_time || null;
+  const getPeopleCount = (order: any) => order.number_of_people ?? order.people_count ?? order.guests ?? null;
+
   async function updateStatus(id: string, status: string) {
     const { error } = await supabase.from('orders').update({ status }).eq('id', id);
     if (!error) onUpdate();
   }
 
   return (
-    <div className="table-responsive">
-      <table className="modern-table">
+    <div>
+      <div className="table-responsive order-table-desktop">
+        <table className="modern-table">
         <thead>
           <tr>
             <th>Order ID</th>
@@ -457,7 +487,52 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
+
+      <div className="order-cards-mobile">
+        {orders.length === 0 ? (
+          <div className="content-card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+            No orders found
+          </div>
+        ) : orders.map((order, idx) => {
+          const orderType = String(order.order_type || '').toLowerCase();
+          const isDineIn = orderType === 'dine-in';
+          const expectedTime = getExpectedTime(order);
+          const people = getPeopleCount(order);
+
+          return (
+            <div key={order.id} className="content-card premium-card table-row-animate" style={{ animationDelay: `${idx * 0.05}s`, marginBottom: '0.9rem', padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                <p className="font-medium text-main">#{order.id.slice(0, 8).toUpperCase()}</p>
+                <span className={`modern-badge status-${order.status || 'pending'}`}>{order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Pending'}</span>
+              </div>
+              <div style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem' }}>
+                <div><strong>Customer:</strong> {getCustomerName(order)}</div>
+                <div><strong>Phone:</strong> {getCustomerPhone(order)}</div>
+                <div><strong>Type:</strong> {order.order_type === 'pre-booking' ? 'Pre Booking' : order.order_type}</div>
+                <div><strong>Amount:</strong> ₹{order.total_amount}</div>
+                {expectedTime && <div><strong>Expected Time:</strong> {expectedTime}</div>}
+                {isDineIn && <div><strong>Persons:</strong> {people || 'Not provided'}</div>}
+                <div><strong>Date:</strong> {new Date(order.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</div>
+              </div>
+              <div className="action-buttons" style={{ marginTop: '0.8rem' }}>
+                {(!order.status || order.status === 'pending') && (
+                  <>
+                    <button className="action-btn success tooltip" data-tip="Confirm" onClick={() => updateStatus(order.id, 'confirmed')}><Check size={16} /></button>
+                    <button className="action-btn danger tooltip" data-tip="Cancel" onClick={() => updateStatus(order.id, 'cancelled')}><X size={16} /></button>
+                  </>
+                )}
+                {order.status === 'confirmed' && (
+                  <button className="btn btn-primary premium-hover" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '0.5rem' }} onClick={() => setVerifyingOrder(order)}>
+                    Verify & Complete
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {verifyingOrder && (
         <OtpVerifyModal

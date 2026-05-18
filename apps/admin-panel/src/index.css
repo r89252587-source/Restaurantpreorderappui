@@ -688,6 +688,20 @@ header {
   border-color: var(--primary);
 }
 
+.order-cards-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .order-table-desktop {
+    display: none;
+  }
+
+  .order-cards-mobile {
+    display: block;
+  }
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;
