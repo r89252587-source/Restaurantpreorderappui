@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { 
+import {
   LayoutDashboard, ShoppingBag, BookOpen, Store, BarChart2,
-  Users, LogOut, Utensils, Bell, Package, Clock, 
+  Users, LogOut, Utensils, Bell, Package, Clock,
   RefreshCw, Check, X, Plus, Edit2, Trash2, Save, IndianRupee, Menu
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -43,10 +43,15 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
   const currentPath = location.pathname.split('/')[1] || 'dashboard';
 
   useEffect(() => {
-    fetchOrders();
-    fetchMenu();
     fetchRestaurantData();
   }, []);
+
+  useEffect(() => {
+    if (restaurant?.id) {
+      fetchOrders(restaurant.id);
+      fetchMenu(restaurant.id);
+    }
+  }, [restaurant?.id]);
 
   useEffect(() => {
     if (!restaurantLoading && !isRestaurantProfileComplete(restaurant) && currentPath !== 'restaurants') {
@@ -54,13 +59,16 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
     }
   }, [restaurantLoading, restaurant, currentPath, navigate]);
 
-  async function fetchOrders() {
+  async function fetchOrders(restId?: string) {
+    const targetId = restId || restaurant?.id;
+    if (!targetId) return;
     try {
       const { data, error } = await supabase
         .from('orders')
         .select('*')
+        .eq('restaurant_id', targetId)
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setOrders(data || []);
     } catch (err: any) {
@@ -68,13 +76,16 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
     }
   }
 
-  async function fetchMenu() {
+  async function fetchMenu(restId?: string) {
+    const targetId = restId || restaurant?.id;
+    if (!targetId) return;
     try {
       const { data, error } = await supabase
         .from('menu_items')
         .select('*')
+        .eq('restaurant_id', targetId)
         .order('name');
-      
+
       if (error) throw error;
       setMenuItems(data || []);
     } catch (err: any) {
@@ -105,7 +116,7 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
         data = fallback.data;
         error = fallback.error;
       }
-      
+
       if (error) throw error;
       const nextRestaurant = data || null;
       setRestaurant(nextRestaurant);
@@ -121,19 +132,19 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
   return (
     <div className="dashboard-layout">
       <div className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)}></div>
-      <Sidebar 
-        currentView={currentPath} 
-        setView={(v) => { navigate(v === 'dashboard' ? '/' : `/${v}`); setSidebarOpen(false); }} 
-        onSignOut={onSignOut} 
+      <Sidebar
+        currentView={currentPath}
+        setView={(v) => { navigate(v === 'dashboard' ? '/' : `/${v}`); setSidebarOpen(false); }}
+        onSignOut={onSignOut}
         isOpen={sidebarOpen}
       />
       <main className="main-content">
-        <Header 
-          viewTitle={currentPath} 
-          userProfile={profile} 
+        <Header
+          viewTitle={currentPath}
+          userProfile={profile}
           onMenuClick={() => setSidebarOpen(true)}
         />
-        
+
         <Routes>
           <Route path="/" element={<DashboardView orders={orders} fetchOrders={fetchOrders} />} />
           <Route path="/orders" element={<OrdersView orders={orders} fetchOrders={fetchOrders} />} />
@@ -165,8 +176,8 @@ function Sidebar({ currentView, setView, onSignOut, isOpen }: { currentView: str
       <ul className="nav-links">
         {links.map(link => (
           <li key={link.id} className="nav-item">
-            <button 
-              onClick={() => setView(link.id)} 
+            <button
+              onClick={() => setView(link.id)}
               className={`nav-link ${currentView === link.id ? 'active' : ''}`}
             >
               <link.icon size={20} />
@@ -235,29 +246,29 @@ function DashboardView({ orders, fetchOrders }: { orders: any[], fetchOrders: ()
   return (
     <div className="dashboard-view-container animate-fade-in">
       <div className="stats-grid premium">
-        <StatCard 
-          icon={Package} 
+        <StatCard
+          icon={Package}
           gradient="linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)"
-          color="#ffffff" 
-          title="Total Orders" 
-          value={orders.length} 
+          color="#ffffff"
+          title="Total Orders"
+          value={orders.length}
         />
-        <StatCard 
-          icon={IndianRupee} 
+        <StatCard
+          icon={IndianRupee}
           gradient="linear-gradient(135deg, #10B981 0%, #059669 100%)"
-          color="#ffffff" 
-          title="Total Revenue" 
-          value={`₹${totalRevenue.toLocaleString()}`} 
+          color="#ffffff"
+          title="Total Revenue"
+          value={`₹${totalRevenue.toLocaleString()}`}
         />
-        <StatCard 
-          icon={Clock} 
+        <StatCard
+          icon={Clock}
           gradient="linear-gradient(135deg, #F59E0B 0%, #D97706 100%)"
-          color="#ffffff" 
-          title="Pending Orders" 
-          value={pendingCount} 
+          color="#ffffff"
+          title="Pending Orders"
+          value={pendingCount}
         />
       </div>
-      
+
       <div className="content-card premium-card" style={{ marginBottom: '2rem', border: '1px solid #10B981' }}>
         <div className="card-header modern" style={{ flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ flex: '1 1 auto' }}>
@@ -265,9 +276,9 @@ function DashboardView({ orders, fetchOrders }: { orders: any[], fetchOrders: ()
             <p className="text-muted text-sm">Awaiting OTP verification from customer</p>
           </div>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <input 
-              type="text" 
-              placeholder="Search by OTP..." 
+            <input
+              type="text"
+              placeholder="Search by OTP..."
               value={otpSearch}
               onChange={(e) => setOtpSearch(e.target.value.replace(/\D/g, '').slice(0, 6))}
               style={{
@@ -287,7 +298,7 @@ function DashboardView({ orders, fetchOrders }: { orders: any[], fetchOrders: ()
         </div>
         <OrdersTable orders={filteredConfirmedOrders} onUpdate={fetchOrders} />
       </div>
-      
+
       <div className="content-card premium-card">
         <div className="card-header modern">
           <div>
@@ -310,7 +321,7 @@ function OrdersView({ orders, fetchOrders }: { orders: any[], fetchOrders: () =>
 
   const filteredOrders = orders.filter(order => {
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    const matchesSearch = !searchQuery.trim() || 
+    const matchesSearch = !searchQuery.trim() ||
       order.id.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
       (order.otp && order.otp.includes(searchQuery.trim()));
     return matchesStatus && matchesSearch;
@@ -331,26 +342,26 @@ function OrdersView({ orders, fetchOrders }: { orders: any[], fetchOrders: () =>
 
         <div className="filters-bar" style={{ display: 'flex', gap: '1rem', padding: '0 1.5rem 1.5rem 1.5rem', flexWrap: 'wrap' }}>
           <div className="search-wrapper" style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
-             <input 
-               type="text" 
-               placeholder="Search by Order ID or OTP..." 
-               value={searchQuery}
-               onChange={e => setSearchQuery(e.target.value)}
-               style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: '1px solid #E2E8F0', outline: 'none' }}
-             />
+            <input
+              type="text"
+              placeholder="Search by Order ID or OTP..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: '1px solid #E2E8F0', outline: 'none' }}
+            />
           </div>
           <div className="category-filters" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {['all', 'pending', 'confirmed', 'completed', 'cancelled'].map(status => (
-              <button 
+              <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
                 className={`btn ${statusFilter === status ? 'btn-primary' : ''}`}
-                style={{ 
-                  textTransform: 'capitalize', 
-                  padding: '0.75rem 1rem', 
-                  background: statusFilter === status ? 'var(--primary)' : 'white', 
-                  border: '1px solid #E2E8F0', 
-                  color: statusFilter === status ? 'white' : 'var(--text-main)' 
+                style={{
+                  textTransform: 'capitalize',
+                  padding: '0.75rem 1rem',
+                  background: statusFilter === status ? 'var(--primary)' : 'white',
+                  border: '1px solid #E2E8F0',
+                  color: statusFilter === status ? 'white' : 'var(--text-main)'
                 }}
               >
                 {status}
@@ -390,15 +401,15 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
         </thead>
         <tbody>
           {orders.length === 0 ? (
-             <tr>
-               <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                 No orders found
-               </td>
-             </tr>
+            <tr>
+              <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                No orders found
+              </td>
+            </tr>
           ) : orders.map((order, idx) => (
-            <tr 
-              key={order.id} 
-              style={{ animationDelay: `${idx * 0.05}s`, cursor: 'pointer' }} 
+            <tr
+              key={order.id}
+              style={{ animationDelay: `${idx * 0.05}s`, cursor: 'pointer' }}
               className="table-row-animate hover-row"
               onClick={() => setViewingOrder(order)}
             >
@@ -449,17 +460,17 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
       </table>
 
       {verifyingOrder && (
-        <OtpVerifyModal 
-          order={verifyingOrder} 
-          onClose={() => setVerifyingOrder(null)} 
-          onSuccess={() => { setVerifyingOrder(null); onUpdate(); }} 
+        <OtpVerifyModal
+          order={verifyingOrder}
+          onClose={() => setVerifyingOrder(null)}
+          onSuccess={() => { setVerifyingOrder(null); onUpdate(); }}
         />
       )}
 
       {viewingOrder && (
-        <OrderDetailsModal 
-          order={viewingOrder} 
-          onClose={() => setViewingOrder(null)} 
+        <OrderDetailsModal
+          order={viewingOrder}
+          onClose={() => setViewingOrder(null)}
         />
       )}
     </div>
@@ -468,9 +479,61 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
 
 function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void }) {
   const [items, setItems] = useState<any[]>([]);
+  const [customerProfile, setCustomerProfile] = useState<any>(null);
+  const [customerLoading, setCustomerLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const orderType = String(order.order_type || '').toLowerCase();
+  const isDineIn = orderType === 'dine-in';
+  const isPreBookingOrTakeaway = orderType === 'pre-booking' || orderType === 'takeaway';
+  const peopleCount = order.number_of_people ?? order.people_count ?? order.guests ?? null;
+  const expectedTime = order.arrival_time || order.booking_time || null;
+  const reservationDate = order.reservation_date || order.booking_date || null;
+  const customerName =
+    order.customer_name ||
+    order.customer_full_name ||
+    order.full_name ||
+    order.name ||
+    customerProfile?.full_name ||
+    'Guest User';
+  const customerPhone =
+    order.customer_phone ||
+    order.phone ||
+    order.mobile ||
+    order.contact_phone ||
+    customerProfile?.phone ||
+    'Not provided';
 
   useEffect(() => {
+    async function fetchCustomerProfile() {
+      const uid = order.user_uid || order.user_id;
+      if (!uid) return;
+      setCustomerLoading(true);
+      try {
+        const { data: userProfileData } = await supabase
+          .from('userProfile')
+          .select('full_name, phone')
+          .eq('id', uid)
+          .maybeSingle();
+        if (userProfileData && (userProfileData.full_name || userProfileData.phone)) {
+          setCustomerProfile(userProfileData);
+          return;
+        }
+
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('full_name, phone')
+          .eq('id', uid)
+          .maybeSingle();
+        if (profilesData) {
+          setCustomerProfile(profilesData);
+        }
+      } catch (err) {
+        console.error('Error fetching customer profile:', err);
+      } finally {
+        setCustomerLoading(false);
+      }
+    }
+
     async function fetchItems() {
       try {
         const { data, error } = await supabase
@@ -480,7 +543,7 @@ function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void
             menu_items (name, image, price, half_price, full_price)
           `)
           .eq('order_id', order.id);
-        
+
         if (!error && data) {
           setItems(data);
         }
@@ -490,6 +553,7 @@ function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void
         setLoading(false);
       }
     }
+    fetchCustomerProfile();
     fetchItems();
   }, [order.id]);
 
@@ -510,7 +574,7 @@ function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void
           </div>
           <button className="btn-close" onClick={onClose}><X /></button>
         </div>
-        
+
         <div style={{ padding: '1.5rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem', background: '#F8FAFC', padding: '1rem', borderRadius: '0.75rem' }}>
             <div>
@@ -521,34 +585,46 @@ function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void
               <p className="text-muted text-xs uppercase tracking-wider mb-1">Total Amount</p>
               <p className="font-bold text-[#10B981] text-lg">₹{order.total_amount}</p>
             </div>
-            {order.otp && (
-              <div style={{ gridColumn: '1 / -1', borderTop: '1px dashed #CBD5E1', paddingTop: '1rem', marginTop: '0.5rem' }}>
-                <p className="text-muted text-xs uppercase tracking-wider mb-1">Verification OTP</p>
-                <p className="font-mono font-bold text-xl tracking-widest text-[#FC0A3D]">{order.otp}</p>
+            <div>
+              <p className="text-muted text-xs uppercase tracking-wider mb-1">Customer Name</p>
+              <p className="font-medium text-main">
+                {customerLoading ? 'Loading...' : customerName}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted text-xs uppercase tracking-wider mb-1">Customer Phone</p>
+              <p className="font-medium text-main">
+                {customerLoading ? 'Loading...' : customerPhone}
+              </p>
+            </div>
+            {isPreBookingOrTakeaway && (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <p className="text-muted text-xs uppercase tracking-wider mb-1">Expected Time</p>
+                <p className="font-medium text-main">{expectedTime || 'Not provided'}</p>
               </div>
             )}
-            {order.number_of_people && (
-              <div>
-                <p className="text-muted text-xs uppercase tracking-wider mb-1">Guests</p>
-                <p className="font-medium text-main">{order.number_of_people} People</p>
-              </div>
-            )}
-            {order.booking_date && (
-              <div>
-                <p className="text-muted text-xs uppercase tracking-wider mb-1">Booking Date</p>
-                <p className="font-medium text-main">{new Date(order.booking_date).toLocaleDateString()}</p>
-              </div>
-            )}
-            {order.booking_time && (
-              <div>
-                <p className="text-muted text-xs uppercase tracking-wider mb-1">Booking Time</p>
-                <p className="font-medium text-main">{order.booking_time}</p>
-              </div>
+            {isDineIn && (
+              <>
+                <div>
+                  <p className="text-muted text-xs uppercase tracking-wider mb-1">Number of Persons</p>
+                  <p className="font-medium text-main">{peopleCount || 'Not provided'}</p>
+                </div>
+                <div>
+                  <p className="text-muted text-xs uppercase tracking-wider mb-1">Expected Time</p>
+                  <p className="font-medium text-main">{expectedTime || 'Not provided'}</p>
+                </div>
+                {reservationDate && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <p className="text-muted text-xs uppercase tracking-wider mb-1">Reservation Date</p>
+                    <p className="font-medium text-main">{new Date(reservationDate).toLocaleDateString()}</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
           <h3 className="font-bold text-main mb-4">Order Items</h3>
-          
+
           {loading ? (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Loading items...</div>
           ) : items.length === 0 ? (
@@ -602,7 +678,7 @@ function OtpVerifyModal({ order, onClose, onSuccess }: { order: any, onClose: ()
       setError('Please enter a 6-digit OTP');
       return;
     }
-    
+
     setLoading(true);
     setError(null);
     try {
@@ -612,7 +688,7 @@ function OtpVerifyModal({ order, onClose, onSuccess }: { order: any, onClose: ()
         .eq('id', order.id)
         .eq('otp', otpInput)
         .single();
-        
+
       if (fetchError || !data) {
         setError("Invalid OTP. Please check with the customer.");
         setLoading(false);
@@ -627,14 +703,14 @@ function OtpVerifyModal({ order, onClose, onSuccess }: { order: any, onClose: ()
 
       const { error: updateError } = await supabase
         .from('orders')
-        .update({ 
-          status: 'completed', 
-          otp_verified_at: new Date().toISOString() 
+        .update({
+          status: 'completed',
+          otp_verified_at: new Date().toISOString()
         })
         .eq('id', order.id);
 
       if (updateError) throw updateError;
-      
+
       onSuccess();
     } catch (err: any) {
       setError(err.message || 'Failed to verify OTP');
@@ -654,32 +730,32 @@ function OtpVerifyModal({ order, onClose, onSuccess }: { order: any, onClose: ()
           <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
             Enter the 6-digit OTP provided by the customer to complete order #{order.id.slice(0, 8).toUpperCase()}
           </p>
-          
-          <input 
-            type="text" 
-            inputMode="numeric" 
-            maxLength={6} 
+
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
             value={otpInput}
             onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
             autoFocus
-            style={{ 
-              width: '100%', 
-              textAlign: 'center', 
-              fontSize: '2rem', 
-              letterSpacing: '0.5em', 
-              padding: '1rem', 
-              borderRadius: '0.75rem', 
+            style={{
+              width: '100%',
+              textAlign: 'center',
+              fontSize: '2rem',
+              letterSpacing: '0.5em',
+              padding: '1rem',
+              borderRadius: '0.75rem',
               border: '2px solid #E2E8F0',
               marginBottom: '1rem',
               outline: 'none'
-            }} 
+            }}
             placeholder="------"
           />
-          
+
           {error && <p style={{ color: '#DC2626', fontSize: '0.875rem', marginBottom: '1rem', fontWeight: 500 }}>{error}</p>}
-          
-          <button 
-            type="submit" 
+
+          <button
+            type="submit"
             disabled={loading || otpInput.length !== 6}
             className="btn btn-primary"
             style={{ width: '100%', padding: '0.875rem', fontSize: '1rem' }}
@@ -719,17 +795,17 @@ function MenuManagementView({ menuItems, fetchMenu, restaurantId }: { menuItems:
 
         <div className="filters-bar" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
           <div className="search-wrapper" style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
-             <input 
-               type="text" 
-               placeholder="Search items..." 
-               value={searchQuery}
-               onChange={e => setSearchQuery(e.target.value)}
-               style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: '1px solid #E2E8F0', outline: 'none' }}
-             />
+            <input
+              type="text"
+              placeholder="Search items..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: '1px solid #E2E8F0', outline: 'none' }}
+            />
           </div>
           <div className="category-filters" style={{ display: 'flex', gap: '0.5rem' }}>
             {['all', 'veg', 'non-veg'].map(cat => (
-              <button 
+              <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
                 className={`btn ${selectedCategory === cat ? 'btn-primary' : ''}`}
@@ -808,11 +884,11 @@ function MenuManagementView({ menuItems, fetchMenu, restaurantId }: { menuItems:
       </div>
 
       {modalOpen && (
-        <MenuModal 
-          item={editingItem} 
+        <MenuModal
+          item={editingItem}
           restaurantId={restaurantId}
-          onClose={() => setModalOpen(false)} 
-          onSave={() => { setModalOpen(false); fetchMenu(); }} 
+          onClose={() => setModalOpen(false)}
+          onSave={() => { setModalOpen(false); fetchMenu(); }}
         />
       )}
     </>
@@ -830,19 +906,19 @@ function MenuManagementView({ menuItems, fetchMenu, restaurantId }: { menuItems:
 function AnalyticsView({ orders }: { orders: any[] }) {
   const totalRevenue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
   const avgOrderValue = orders.length > 0 ? (totalRevenue / orders.length).toFixed(2) : 0;
-  
+
   return (
     <div className="animate-fade-in">
-       <div className="stats-grid premium">
-          <StatCard icon={IndianRupee} gradient="linear-gradient(135deg, #10B981 0%, #059669 100%)" title="Total Revenue" value={`₹${totalRevenue.toLocaleString()}`} />
-          <StatCard icon={ShoppingBag} gradient="linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)" title="Avg Order Value" value={`₹${avgOrderValue}`} />
-          <StatCard icon={Users} gradient="linear-gradient(135deg, #F59E0B 0%, #D97706 100%)" title="Total Customers" value={orders.length} />
-       </div>
-       <div className="content-card" style={{ marginTop: '2rem', padding: '4rem 2rem', textAlign: 'center' }}>
-          <BarChart2 size={48} color="var(--primary)" style={{ opacity: 0.2, marginBottom: '1.5rem' }} />
-          <h3 style={{ marginBottom: '0.5rem' }}>Analytics charts coming soon</h3>
-          <p className="text-muted">Detailed performance metrics and trends will be displayed here.</p>
-       </div>
+      <div className="stats-grid premium">
+        <StatCard icon={IndianRupee} gradient="linear-gradient(135deg, #10B981 0%, #059669 100%)" title="Total Revenue" value={`₹${totalRevenue.toLocaleString()}`} />
+        <StatCard icon={ShoppingBag} gradient="linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)" title="Avg Order Value" value={`₹${avgOrderValue}`} />
+        <StatCard icon={Users} gradient="linear-gradient(135deg, #F59E0B 0%, #D97706 100%)" title="Total Customers" value={orders.length} />
+      </div>
+      <div className="content-card" style={{ marginTop: '2rem', padding: '4rem 2rem', textAlign: 'center' }}>
+        <BarChart2 size={48} color="var(--primary)" style={{ opacity: 0.2, marginBottom: '1.5rem' }} />
+        <h3 style={{ marginBottom: '0.5rem' }}>Analytics charts coming soon</h3>
+        <p className="text-muted">Detailed performance metrics and trends will be displayed here.</p>
+      </div>
     </div>
   )
 }
@@ -898,7 +974,7 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
       const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
       const data = await response.json();
       if (data && data.display_name) {
-         setFormData((prev: any) => ({ ...prev, location: data.display_name, latitude: lat, longitude: lng }));
+        setFormData((prev: any) => ({ ...prev, location: data.display_name, latitude: lat, longitude: lng }));
       }
     } catch (e) {
       console.error("Reverse geocoding failed", e);
@@ -960,10 +1036,10 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
         <div className="form-group" style={{ gridColumn: '1 / -1' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <label style={{ margin: 0 }}>Restaurant Location</label>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={handleLocateMe}
-              className="btn btn-ghost" 
+              className="btn btn-ghost"
               style={{ fontSize: '0.85rem', padding: '0.4rem 0.75rem', color: '#10B981', border: '1px solid #10B981', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '0.5rem' }}
             >
               📍 Use Current Location
@@ -979,11 +1055,11 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
               <LocationMarker position={mapPosition} setPosition={setMapPosition} onLocationUpdate={handleLocationUpdate} />
             </MapContainer>
           </div>
-          <textarea 
+          <textarea
             placeholder="Address will auto-fill when you click on the map..."
-            value={formData.location || ''} 
-            onChange={e => setFormData({ ...formData, location: e.target.value })} 
-            rows={2} 
+            value={formData.location || ''}
+            onChange={e => setFormData({ ...formData, location: e.target.value })}
+            rows={2}
             style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #E2E8F0', outline: 'none' }}
           />
         </div>
@@ -1041,20 +1117,20 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
     try {
       setIsSaving(true);
       setSaveMessage(null);
-      
+
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
 
       // Prepare payload to match database schema
       const submissionData = { ...formData };
-      
+
       if (userId) {
         submissionData.owner_id = userId;
       }
-      
+
       // Handle opening hours
       submissionData.opening_hours = `${openTime} - ${closeTime}`;
-      
+
       // Fix numeric rating (Postgres DECIMAL cannot be "")
       if (submissionData.rating === "" || submissionData.rating === null || submissionData.rating === undefined) {
         submissionData.rating = 5.0; // Default rating
@@ -1062,12 +1138,12 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
         const parsedRating = parseFloat(submissionData.rating);
         submissionData.rating = isNaN(parsedRating) ? 5.0 : parsedRating;
       }
-      
+
       // Ensure required fields for NOT NULL constraints
       if (!submissionData.image) {
         submissionData.image = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80';
       }
-      
+
       if (!submissionData.distance) {
         submissionData.distance = '0.5 km';
       }
@@ -1099,7 +1175,7 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
           .from('adminProfile')
           .update({ restaurant_id: data.id })
           .eq('id', userId);
-        
+
         if (adminProfileError) {
           const { error: profileError } = await supabase
             .from('profiles')
@@ -1123,11 +1199,11 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
       if (err?.code === '42501' || message.toLowerCase().includes('row-level security')) {
         setSaveMessage({ type: 'error', text: 'Database RLS blocked this action. Apply admin-panel/supabase/admin-panel-rls.sql in Supabase SQL Editor, then try again.' });
       } else
-      if (String(err?.message || '').toLowerCase().includes('timed out')) {
-        setSaveMessage({ type: 'error', text: 'Save request timed out after 15s. Please check your Supabase network/RLS setup.' });
-      } else {
-        setSaveMessage({ type: 'error', text: err.message || 'Failed to save settings.' });
-      }
+        if (String(err?.message || '').toLowerCase().includes('timed out')) {
+          setSaveMessage({ type: 'error', text: 'Save request timed out after 15s. Please check your Supabase network/RLS setup.' });
+        } else {
+          setSaveMessage({ type: 'error', text: err.message || 'Failed to save settings.' });
+        }
     } finally {
       setIsSaving(false);
     }
@@ -1176,10 +1252,10 @@ function MenuModal({ item, restaurantId, onClose, onSave }: any) {
         submissionData.full_price = null;
       }
 
-      const result = item 
+      const result = item
         ? await supabase.from('menu_items').update(submissionData).eq('id', item.id)
         : await supabase.from('menu_items').insert(submissionData);
-      
+
       if (result.error) {
         console.error('Supabase error:', result.error);
         alert('Error: ' + result.error.message);

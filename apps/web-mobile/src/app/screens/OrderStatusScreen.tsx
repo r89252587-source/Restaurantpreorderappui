@@ -3,19 +3,21 @@ import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, CheckCircle2, Clock, ChefHat, PackageCheck, Plus, Loader2 } from "lucide-react";
 import { BottomNav } from "@/app/components/BottomNav";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/app/context/AuthContext";
 
 type OrderStatus = "confirmed" | "preparing" | "ready";
 
 export function OrderStatusScreen() {
   const navigate = useNavigate();
   const { orderId } = useParams();
+  const { user } = useAuth();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showAddItems, setShowAddItems] = useState(false);
   const [orderItems, setOrderItems] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!orderId) return;
+    if (!orderId || !user?.id) return;
 
     const fetchOrderAndItems = async () => {
       try {
@@ -23,6 +25,7 @@ export function OrderStatusScreen() {
           .from('orders')
           .select('*')
           .eq('id', orderId)
+          .eq('user_uid', user.id)
           .single();
 
         if (orderError) throw orderError;
@@ -64,7 +67,7 @@ export function OrderStatusScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [orderId]);
+  }, [orderId, user?.id]);
 
   const orderStatus = order?.status || "pending";
 
@@ -241,8 +244,21 @@ export function OrderStatusScreen() {
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center gap-3">
             <Clock size={24} className="text-blue-600" />
             <div>
-              <h4 className="font-semibold text-[#1A1A1A]">Estimated Time</h4>
-              <p className="text-sm text-[#6B6B6B]">Your order will be ready in 15-20 minutes</p>
+              <h4 className="font-semibold text-[#1A1A1A]">
+                {order?.order_type === 'dine-in' ? 'Reservation Details' : 'Expected Arrival Time'}
+              </h4>
+              <p className="text-sm text-[#6B6B6B]">
+                {order?.arrival_time ? (
+                  <>
+                    <span className="font-medium text-[#1A1A1A]">{order.arrival_time}</span>
+                    {order?.order_type === 'dine-in' && order?.number_of_people ? (
+                      <span> • {order.number_of_people} People</span>
+                    ) : null}
+                  </>
+                ) : (
+                  'Not specified'
+                )}
+              </p>
             </div>
           </div>
         )}

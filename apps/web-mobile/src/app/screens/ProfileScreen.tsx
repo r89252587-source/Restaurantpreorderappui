@@ -24,18 +24,44 @@ export function ProfileScreen() {
 
   const [locationLoading, setLocationLoading] = useState(false);
   const [userLocation, setUserLocation] = useState<any>(null);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
     if (user) {
       const fetchProfile = async () => {
-        const { data } = await supabase.from('userProfile').select('latitude, longitude, address').eq('id', user.id).single();
-        if (data && data.address) {
+        const { data } = await supabase.from('userProfile').select('*').eq('id', user.id).single();
+        if (data) {
+          setProfileData(data);
           setUserLocation(data);
+          setEditName(data.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || "");
+          setEditPhone(data.phone || "");
         }
       };
       fetchProfile();
     }
   }, [user]);
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setSavingProfile(true);
+    try {
+      await supabase.from('userProfile').update({
+        full_name: editName,
+        phone: editPhone
+      }).eq('id', user.id);
+      setProfileData({ ...profileData, full_name: editName, phone: editPhone });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      alert("Failed to save profile");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -98,14 +124,30 @@ export function ProfileScreen() {
               <User size={32} className="text-[#FF0031]" />
             </div>
             <div className="flex-1">
-              <h2 className="text-xl font-semibold text-white">
-                {user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User"}
-              </h2>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full bg-white/20 text-white placeholder:text-white/50 border border-white/30 rounded px-2 py-1 mb-1 outline-none focus:border-white"
+                  placeholder="Full Name"
+                />
+              ) : (
+                <h2 className="text-xl font-semibold text-white">
+                  {profileData?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User"}
+                </h2>
+              )}
               <p className="text-white/80 text-sm">QuickBite Member</p>
             </div>
-            <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-              <Edit size={20} className="text-white" />
-            </button>
+            {isEditing ? (
+              <button onClick={handleSaveProfile} disabled={savingProfile} className="px-3 py-1 bg-white text-[#FF0031] rounded-lg font-medium text-sm">
+                {savingProfile ? "..." : "Save"}
+              </button>
+            ) : (
+              <button onClick={() => setIsEditing(true)} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                <Edit size={20} className="text-white" />
+              </button>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -115,7 +157,17 @@ export function ProfileScreen() {
             </div>
             <div className="flex items-center gap-3 text-white/90">
               <Phone size={16} />
-              <span className="text-sm">{user?.phone || "Not provided"}</span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="w-full bg-white/20 text-white placeholder:text-white/50 border border-white/30 rounded px-2 py-1 outline-none focus:border-white text-sm"
+                  placeholder="Phone Number"
+                />
+              ) : (
+                <span className="text-sm">{profileData?.phone || "Not provided"}</span>
+              )}
             </div>
           </div>
         </div>

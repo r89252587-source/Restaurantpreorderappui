@@ -11,6 +11,7 @@ import { OrderConfirmationScreen } from "@/app/screens/OrderConfirmationScreen";
 import { OrderListScreen } from "@/app/screens/OrderListScreen";
 import { OrderStatusScreen } from "@/app/screens/OrderStatusScreen";
 import { ProfileScreen } from "@/app/screens/ProfileScreen";
+import { CompleteProfileScreen } from "@/app/screens/CompleteProfileScreen";
 
 export const router = createBrowserRouter([
   {
@@ -60,5 +61,9 @@ export const router = createBrowserRouter([
   {
     path: "/profile",
     Component: ProfileScreen,
+  },
+  {
+    path: "/complete-profile",
+    Component: CompleteProfileScreen,
   },
 ]);

@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 
 export function DineInDetailsScreen() {
   const navigate = useNavigate();
-  const { cart, clearCart, getTotalPrice } = useCart();
+  const { cart, clearCart, getTotalPrice, restaurantId } = useCart();
   const totalAmount = getTotalPrice();
 
   const [numberOfPeople, setNumberOfPeople] = useState(2);
@@ -78,18 +78,37 @@ export function DineInDetailsScreen() {
 
     setIsSubmitting(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      let customerName: string | null = null;
+      let customerPhone: string | null = null;
+
+      if (user?.id) {
+        const { data: profileData } = await supabase
+          .from('userProfile')
+          .select('full_name, phone')
+          .eq('id', user.id)
+          .maybeSingle();
+        customerName = profileData?.full_name || user.user_metadata?.full_name || null;
+        customerPhone = profileData?.phone || null;
+      }
+
       // 1. Insert Order
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
+          user_uid: user?.id || null,
+          customer_name: customerName,
+          customer_phone: customerPhone,
           order_type: 'dine-in',
           total_amount: totalAmount,
+          number_of_people: numberOfPeople,
           arrival_time: selectedTimeSlot,
           reservation_date: selectedDate,
           table_number: tableNumber || null,
           status: 'pending',
-          otp: otp
+          otp: otp,
+          restaurant_id: restaurantId
         })
         .select()
         .single();

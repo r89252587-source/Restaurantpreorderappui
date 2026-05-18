@@ -5,8 +5,10 @@ import { supabase } from "@/lib/supabase";
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  profile: any | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -14,7 +16,30 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchProfile = async (userId: string) => {
+    let { data: profileData, error } = await supabase
+      .from('userProfile')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error && error.code === 'PGRST116') {
+      // Create missing profile
+      const newProfile = {
+        id: userId,
+        email: session?.user?.email,
+        role: 'user',
+        is_phoneVerified: 'not verified'
+      };
+      await supabase.from('userProfile').insert(newProfile);
+      profileData = newProfile;
+    }
+    
+    setProfile(profileData);
+  };
 
   useEffect(() => {
     async function handleAuthState(session: Session | null) {
@@ -22,21 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        // Ensure user profile exists in userProfile table
-        const { data: profile, error } = await supabase
-          .from('userProfile')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (error && error.code === 'PGRST116') {
-          // Create missing profile
-          await supabase.from('userProfile').insert({
-            id: session.user.id,
-            email: session.user.email,
-            role: 'user'
-          });
-        }
+        await fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
       }
       
       setLoading(false);
@@ -61,8 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfile(user.id);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

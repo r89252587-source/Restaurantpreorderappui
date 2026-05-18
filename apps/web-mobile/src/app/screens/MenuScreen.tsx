@@ -14,12 +14,18 @@ type OrderType = "pre-booking" | "takeaway" | "dine-in";
 export function MenuScreen() {
   const navigate = useNavigate();
   const { restaurantId } = useParams();
-  const { cart, addToCart, updateQuantity, getTotalItems, getTotalPrice, getItemQuantity } = useCart();
+  const { cart, addToCart, updateQuantity, getTotalItems, getTotalPrice, getItemQuantity, setRestaurantId } = useCart();
   const [activeCategory, setActiveCategory] = useState<Category>("all");
   const [activeFoodType, setActiveFoodType] = useState<FoodType>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrderType, setSelectedOrderType] = useState<OrderType>("pre-booking");
   const [showPdfModal, setShowPdfModal] = useState(false);
+
+  useEffect(() => {
+    if (restaurantId) {
+      setRestaurantId(restaurantId);
+    }
+  }, [restaurantId, setRestaurantId]);
 
   const { user } = useAuth();
   const [restaurant, setRestaurant] = useState<any>(null);

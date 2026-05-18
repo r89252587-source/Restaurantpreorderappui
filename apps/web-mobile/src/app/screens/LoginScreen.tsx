@@ -6,7 +6,7 @@ import { useAuth } from "@/app/context/AuthContext";
 
 export function LoginScreen() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -14,10 +14,14 @@ export function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
-      navigate("/restaurants");
+    if (user && profile) {
+      if (!profile.phone || !profile.full_name) {
+        navigate("/complete-profile");
+      } else {
+        navigate("/restaurants");
+      }
     }
-  }, [user, navigate]);
+  }, [user, profile, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +35,7 @@ export function LoginScreen() {
       });
 
       if (error) throw error;
-      navigate("/restaurants");
+      // Let the useEffect handle the navigation
     } catch (err: any) {
       setError(err.message || "An error occurred during login");
     } finally {
@@ -44,7 +48,7 @@ export function LoginScreen() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/restaurants'
+          redirectTo: window.location.origin
         }
       });
       if (error) throw error;

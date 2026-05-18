@@ -16,12 +16,15 @@ interface CartContextType {
   getTotalPrice: () => number;
   getTotalItems: () => number;
   getItemQuantity: (id: string, portion?: "half" | "full") => number;
+  restaurantId: string | null;
+  setRestaurantId: (id: string | null) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
   const addToCart = useCallback((item: Omit<CartItem, "quantity">) => {
     setCart((prev) => {
@@ -60,6 +63,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = useCallback(() => {
     setCart([]);
+    setRestaurantId(null);
   }, []);
 
   const getTotalPrice = useCallback(() => {
@@ -81,6 +85,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         getTotalPrice,
         getTotalItems,
         getItemQuantity,
+        restaurantId,
+        setRestaurantId,
       }}
     >
       {children}

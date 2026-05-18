@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Clock, MapPin, ChevronRight, Loader2 } from "lucide-react";
 import { BottomNav } from "@/app/components/BottomNav";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/app/context/AuthContext";
 
 type OrderType = "pre-booking" | "takeaway" | "dine-in";
 type OrderStatus = "confirmed" | "preparing" | "ready" | "completed";
@@ -22,18 +23,24 @@ interface Order {
 
 export function OrderListScreen() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchOrders = async () => {
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
+      
       try {
         setLoading(true);
         // We fetch orders and join with restaurants table
-        // Note: If you get empty results, check if the relationship is correctly defined in Supabase
         const { data, error } = await supabase
           .from('orders')
           .select('*, restaurant:restaurants(*)') // Explicitly naming the join 'restaurant'
+          .eq('user_uid', user.id)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -42,6 +49,7 @@ export function OrderListScreen() {
           const { data: simpleData, error: simpleError } = await supabase
             .from('orders')
             .select('*')
+            .eq('user_uid', user.id)
             .order('created_at', { ascending: false });
           
           if (simpleError) throw simpleError;
@@ -57,7 +65,7 @@ export function OrderListScreen() {
     };
 
     fetchOrders();
-  }, []);
+  }, [user]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

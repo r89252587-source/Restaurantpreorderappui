@@ -9,7 +9,7 @@ type OrderType = "pre-booking" | "takeaway" | "dine-in";
 
 export function RestaurantListScreen() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrderType, setSelectedOrderType] = useState<OrderType>("pre-booking");
   const [restaurants, setRestaurants] = useState<any[]>([]);
@@ -36,6 +36,13 @@ export function RestaurantListScreen() {
       });
     }
   }, [user]);
+
+  useEffect(() => {
+    // Check if the user profile is missing required fields, if so, redirect them
+    if (profile && (!profile.phone || !profile.full_name)) {
+      navigate("/complete-profile");
+    }
+  }, [profile, navigate]);
 
   useEffect(() => {
     const fetchRestaurants = async () => {

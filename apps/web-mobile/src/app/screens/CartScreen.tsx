@@ -9,7 +9,7 @@ type OrderType = "pre-booking" | "takeaway" | "dine-in";
 
 export function CartScreen() {
   const navigate = useNavigate();
-  const { cart, updateQuantity, removeFromCart, getTotalPrice } = useCart();
+  const { cart, updateQuantity, removeFromCart, getTotalPrice, restaurantId } = useCart();
   const [selectedOrderType, setSelectedOrderType] = useState<OrderType>("pre-booking");
 
   const totalAmount = getTotalPrice();
@@ -21,7 +21,11 @@ export function CartScreen() {
   useEffect(() => {
     const fetchRestaurant = async () => {
       try {
-        const { data, error } = await supabase.from('restaurants').select('*').limit(1).single();
+        if (!restaurantId) {
+          setLoading(false);
+          return;
+        }
+        const { data, error } = await supabase.from('restaurants').select('*').eq('id', restaurantId).single();
         if (error) throw error;
         setRestaurant(data);
       } catch (error) {
@@ -31,7 +35,7 @@ export function CartScreen() {
       }
     };
     fetchRestaurant();
-  }, []);
+  }, [restaurantId]);
 
   const handleConfirmOrder = () => {
     if (selectedOrderType === "pre-booking") {
