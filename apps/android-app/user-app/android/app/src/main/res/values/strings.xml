@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Fiesto User App</string>
+    <string name="title_activity_main">Fiesto User App</string>
+    <string name="package_name">com.fiesto.userapp</string>
+    <string name="custom_url_scheme">com.fiesto.userapp</string>
+</resources>
