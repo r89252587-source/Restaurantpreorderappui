@@ -130,22 +130,14 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
   }
 
   return (
-    <div className="dashboard-layout">
-      <div className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)}></div>
-      <Sidebar
-        currentView={currentPath}
-        setView={(v) => { navigate(v === 'dashboard' ? '/' : `/${v}`); setSidebarOpen(false); }}
+    <div className="android-app-layout">
+      <Header
+        viewTitle={currentPath}
+        userProfile={profile}
         onSignOut={onSignOut}
-        isOpen={sidebarOpen}
       />
-      <main className="main-content">
-        <Header
-          viewTitle={currentPath}
-          userProfile={profile}
-          onMenuClick={() => setSidebarOpen(true)}
-          onSignOut={onSignOut}
-        />
 
+      <main className="android-main-content">
         <Routes>
           <Route path="/" element={<DashboardView orders={orders} fetchOrders={fetchOrders} />} />
           <Route path="/orders" element={<OrdersView orders={orders} fetchOrders={fetchOrders} />} />
@@ -154,96 +146,80 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
           <Route path="/analytics" element={<AnalyticsView orders={orders} />} />
         </Routes>
       </main>
+
+      <BottomNav
+        currentView={currentPath}
+        setView={(v) => { navigate(v === 'dashboard' ? '/' : `/${v}`); }}
+      />
     </div>
   );
 }
 
 
-function Sidebar({ currentView, setView, onSignOut, isOpen }: { currentView: string, setView: (v: string) => void, onSignOut: () => void, isOpen: boolean }) {
+function BottomNav({ currentView, setView }: { currentView: string, setView: (v: string) => void }) {
   const links: { id: string, icon: any, label: string }[] = [
-    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Dash' },
     { id: 'orders', icon: ShoppingBag, label: 'Orders' },
-    { id: 'menu', icon: BookOpen, label: 'Menu Management' },
-    { id: 'restaurants', icon: Store, label: 'Restaurants' },
-    { id: 'analytics', icon: BarChart2, label: 'Analytics' },
+    { id: 'menu', icon: BookOpen, label: 'Menu' },
+    { id: 'restaurants', icon: Store, label: 'Settings' },
+    { id: 'analytics', icon: BarChart2, label: 'Reports' },
   ];
 
   return (
-    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
-      <div className="logo">
-        <Utensils />
-        <span>QuickBite</span>
-      </div>
-      <ul className="nav-links">
-        {links.map(link => (
-          <li key={link.id} className="nav-item">
-            <button
-              onClick={() => setView(link.id)}
-              className={`nav-link ${currentView === link.id ? 'active' : ''}`}
-            >
-              <link.icon size={20} />
-              <span>{link.label}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-      <ul className="nav-links" style={{ marginTop: 'auto', flex: 0 }}>
-        <li className="nav-item">
-          <button onClick={onSignOut} className="nav-link logout-link">
-            <LogOut size={20} />
-            <span>Logout</span>
-          </button>
-        </li>
-      </ul>
-    </aside>
+    <nav className="bottom-nav">
+      {links.map(link => (
+        <button
+          key={link.id}
+          onClick={() => setView(link.id)}
+          className={`bottom-nav-item ${currentView === link.id ? 'active' : ''}`}
+        >
+          <div className="bottom-nav-icon">
+            <link.icon size={22} />
+          </div>
+          <span className="bottom-nav-label">{link.label}</span>
+        </button>
+      ))}
+    </nav>
   );
 }
 
-function Header({ viewTitle, userProfile, onMenuClick, onSignOut }: { viewTitle: string, userProfile: any, onMenuClick: () => void, onSignOut: () => void }) {
+function Header({ viewTitle, userProfile, onSignOut }: { viewTitle: string, userProfile: any, onSignOut: () => void }) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const titles: Record<string, string> = {
-    dashboard: 'Dashboard Overview',
-    orders: 'Orders Management',
-    menu: 'Menu Management',
-    restaurants: 'Restaurant Settings',
-    analytics: 'Analytics & Reports'
+    dashboard: 'Dashboard',
+    orders: 'Orders',
+    menu: 'Menu',
+    restaurants: 'Settings',
+    analytics: 'Analytics'
   };
 
   return (
-    <header>
+    <header className="android-app-bar shadow-sm">
       <div className="header-left">
-        <button className="menu-toggle" onClick={onMenuClick}>
-          <Menu size={24} />
-        </button>
-        <div className="header-title">
-          <h1>{titles[viewTitle] || 'Dashboard'}</h1>
-          <p className="welcome-text">Welcome back, Admin</p>
-        </div>
+        <h1 className="android-app-title">{titles[viewTitle] || 'Dashboard'}</h1>
       </div>
-      <div className="user-profile">
-        <div className="notifications hide-mobile">
-          <button className="btn btn-ghost">
-            <Bell size={20} />
-          </button>
-        </div>
+      <div className="user-profile relative">
+        <button className="android-icon-btn">
+          <Bell size={22} />
+        </button>
         <div style={{ position: 'relative' }}>
           <button
-            className="avatar"
+            className="avatar-btn"
             onClick={() => setProfileMenuOpen(prev => !prev)}
-            style={{ border: 'none', cursor: 'pointer', padding: 0 }}
           >
-            {userProfile?.avatar_url ? <img src={userProfile.avatar_url} style={{ width: '100%', height: '100%', borderRadius: '50%' }} /> : 'AD'}
+            {userProfile?.avatar_url ? <img src={userProfile.avatar_url} className="avatar-img" /> : <div className="avatar-placeholder">AD</div>}
           </button>
           {profileMenuOpen && (
-            <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: '150px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '0.75rem', boxShadow: '0 10px 25px rgba(0,0,0,0.08)', zIndex: 100 }}>
+            <div className="android-dropdown-menu">
               <button
                 onClick={() => {
                   setProfileMenuOpen(false);
                   onSignOut();
                 }}
-                style={{ width: '100%', padding: '0.75rem 1rem', textAlign: 'left', background: 'transparent', border: 'none', color: '#DC2626', fontWeight: 600, cursor: 'pointer' }}
+                className="android-dropdown-item text-danger"
               >
+                <LogOut size={18} />
                 Logout
               </button>
             </div>
@@ -362,28 +338,32 @@ function OrdersView({ orders, fetchOrders }: { orders: any[], fetchOrders: () =>
           </button>
         </div>
 
-        <div className="filters-bar" style={{ display: 'flex', gap: '1rem', padding: '0 1.5rem 1.5rem 1.5rem', flexWrap: 'wrap' }}>
-          <div className="search-wrapper" style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
+        <div className="filters-bar" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0 1rem 1rem 1rem' }}>
+          <div className="search-wrapper" style={{ width: '100%', position: 'relative' }}>
             <input
               type="text"
-              placeholder="Search by Order ID or OTP..."
+              placeholder="Search ID/OTP..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: '1px solid #E2E8F0', outline: 'none' }}
+              style={{ width: '100%', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #E2E8F0', outline: 'none', fontSize: '0.8rem' }}
             />
           </div>
-          <div className="category-filters" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="category-filters" style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.2rem', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <style>{`.category-filters::-webkit-scrollbar { display: none; }`}</style>
             {['all', 'pending', 'confirmed', 'completed', 'cancelled'].map(status => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
-                className={`btn ${statusFilter === status ? 'btn-primary' : ''}`}
                 style={{
                   textTransform: 'capitalize',
-                  padding: '0.75rem 1rem',
+                  padding: '0.3rem 0.75rem',
+                  borderRadius: '1rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
                   background: statusFilter === status ? 'var(--primary)' : 'white',
                   border: '1px solid #E2E8F0',
-                  color: statusFilter === status ? 'white' : 'var(--text-main)'
+                  color: statusFilter === status ? 'white' : 'var(--text-muted)'
                 }}
               >
                 {status}
@@ -502,7 +482,12 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
           const people = getPeopleCount(order);
 
           return (
-            <div key={order.id} className="content-card premium-card table-row-animate" style={{ animationDelay: `${idx * 0.05}s`, marginBottom: '0.9rem', padding: '1rem' }}>
+            <div 
+              key={order.id} 
+              className="content-card premium-card table-row-animate" 
+              style={{ animationDelay: `${idx * 0.05}s`, marginBottom: '0.9rem', padding: '1rem', cursor: 'pointer' }}
+              onClick={() => setViewingOrder(order)}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
                 <p className="font-medium text-main">#{order.id.slice(0, 8).toUpperCase()}</p>
                 <span className={`modern-badge status-${order.status || 'pending'}`}>{order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Pending'}</span>
@@ -516,7 +501,7 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
                 {isDineIn && <div><strong>Persons:</strong> {people || 'Not provided'}</div>}
                 <div><strong>Date:</strong> {new Date(order.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</div>
               </div>
-              <div className="action-buttons" style={{ marginTop: '0.8rem' }}>
+              <div className="action-buttons" style={{ marginTop: '0.8rem' }} onClick={(e) => e.stopPropagation()}>
                 {(!order.status || order.status === 'pending') && (
                   <>
                     <button className="action-btn success tooltip" data-tip="Confirm" onClick={() => updateStatus(order.id, 'confirmed')}><Check size={16} /></button>
