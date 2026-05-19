@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, ShoppingCart, Leaf, Star, MapPin, FileText, X, CalendarClock, ShoppingBag, UtensilsCrossed, Search } from "lucide-react";
 import { useCart } from "@/app/context/CartContext";
 import { useAuth } from "@/app/context/AuthContext";
 import { Input } from "@/app/components/ui/input";
 import { supabase } from "@/lib/supabase";
-import { useEffect } from "react";
 
 type Category = "all" | "veg" | "non-veg";
 type FoodType = "all" | "starter" | "main" | "bread" | "dessert" | "beverage";
@@ -20,6 +19,9 @@ export function MenuScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrderType, setSelectedOrderType] = useState<OrderType>("pre-booking");
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [showReadMore, setShowReadMore] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     if (restaurantId) {
@@ -97,6 +99,17 @@ export function MenuScreen() {
     fetchData();
   }, [restaurantId]);
 
+  useEffect(() => {
+    if (descRef.current && !isDescExpanded) {
+      const { scrollHeight, clientHeight } = descRef.current;
+      if (scrollHeight > clientHeight) {
+        setShowReadMore(true);
+      } else {
+        setShowReadMore(false);
+      }
+    }
+  }, [restaurant?.description]);
+
   const filteredItems = items.filter((item) => {
     // Filter by veg/non-veg category
     const categoryMatch = activeCategory === "all" || item.category === activeCategory;
@@ -162,7 +175,27 @@ export function MenuScreen() {
             )}
           </div>
         </div>
-        <div className="mt-3 flex items-start gap-2">
+        {restaurant?.description && (
+          <div className="mt-3 text-[#6B6B6B] text-sm">
+            <p
+              ref={descRef}
+              className={`leading-relaxed transition-all ${
+                isDescExpanded ? "" : "line-clamp-3"
+              }`}
+            >
+              {restaurant.description}
+            </p>
+            {showReadMore && (
+              <button
+                onClick={() => setIsDescExpanded(!isDescExpanded)}
+                className="text-[#FF0031] font-semibold mt-1 focus:outline-none hover:underline"
+              >
+                {isDescExpanded ? "Read Less" : "Read More..."}
+              </button>
+            )}
+          </div>
+        )}
+        <div className="mt-3 flex items-start gap-2 border-t border-gray-100 pt-3">
           <MapPin size={18} className="text-[#6B6B6B] mt-0.5 flex-shrink-0" />
           <p className="text-[#6B6B6B] text-sm">{restaurant?.location}</p>
         </div>
@@ -280,51 +313,7 @@ export function MenuScreen() {
           </button>
         </div>
 
-        {/* Order Type Options - Compact */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => restaurant?.services.preBooking && setSelectedOrderType("pre-booking")}
-            disabled={!restaurant?.services.preBooking}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-              selectedOrderType === "pre-booking"
-                ? "bg-[#FF0031] text-white"
-                : restaurant?.services.preBooking
-                ? "bg-[#F5F5F5] text-[#1A1A1A] hover:bg-gray-200"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            <CalendarClock size={14} />
-            Pre-Booking
-          </button>
-          <button
-            onClick={() => restaurant?.services.takeaway && setSelectedOrderType("takeaway")}
-            disabled={!restaurant?.services.takeaway}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-              selectedOrderType === "takeaway"
-                ? "bg-[#FF0031] text-white"
-                : restaurant?.services.takeaway
-                ? "bg-[#F5F5F5] text-[#1A1A1A] hover:bg-gray-200"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            <ShoppingBag size={14} />
-            Take Away
-          </button>
-          <button
-            onClick={() => restaurant?.services.dineIn && setSelectedOrderType("dine-in")}
-            disabled={!restaurant?.services.dineIn}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-              selectedOrderType === "dine-in"
-                ? "bg-[#FF0031] text-white"
-                : restaurant?.services.dineIn
-                ? "bg-[#F5F5F5] text-[#1A1A1A] hover:bg-gray-200"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            <UtensilsCrossed size={14} />
-            Dine-In
-          </button>
-        </div>
+
       </div>
 
       {/* Menu Items */}

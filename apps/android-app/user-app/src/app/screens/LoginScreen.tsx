@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Utensils, Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/context/AuthContext";
+import { Browser } from "@capacitor/browser";
 
 export function LoginScreen() {
   const navigate = useNavigate();
@@ -45,13 +46,21 @@ export function LoginScreen() {
 
   const handleGoogleLogin = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          skipBrowserRedirect: true,
+          redirectTo: 'com.fiesto.userapp://login-callback',
+          queryParams: {
+            prompt: 'select_account'
+          }
         }
       });
       if (error) throw error;
+      
+      if (data?.url) {
+        await Browser.open({ url: data.url });
+      }
     } catch (err: any) {
       setError(err.message || "An error occurred with Google login");
     }

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { BottomNav } from "@/app/components/BottomNav";
 import { useAuth } from "@/app/context/AuthContext";
+import { Geolocation } from "@capacitor/geolocation";
 
 export function ProfileScreen() {
   const navigate = useNavigate();
@@ -69,46 +70,44 @@ export function ProfileScreen() {
   };
 
   const handleGetLocation = async () => {
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser.");
-      return;
-    }
-
     setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        
-        try {
-          // Reverse Geocoding
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-          const data = await response.json();
-          const address = data?.display_name || "Unknown Location";
-
-          // Save to Supabase
-          if (user) {
-            await supabase.from('userProfile').update({
-              latitude: lat,
-              longitude: lng,
-              address: address
-            }).eq('id', user.id);
-          }
-
-          setUserLocation({ latitude: lat, longitude: lng, address });
-        } catch (error) {
-          console.error("Error saving location:", error);
-          alert("Failed to fetch address details.");
-        } finally {
+    try {
+      // Check and request permissions
+      const permissions = await Geolocation.checkPermissions();
+      if (permissions.location !== 'granted') {
+        const request = await Geolocation.requestPermissions();
+        if (request.location !== 'granted') {
+          alert("Location permission denied.");
           setLocationLoading(false);
+          return;
         }
-      },
-      (error) => {
-        console.error("Geolocation error:", error);
-        alert("Could not get current location. Please allow location access.");
-        setLocationLoading(false);
       }
-    );
+
+      const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      
+      // Reverse Geocoding
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const data = await response.json();
+      const address = data?.display_name || "Unknown Location";
+
+      // Save to Supabase
+      if (user) {
+        await supabase.from('userProfile').update({
+          latitude: lat,
+          longitude: lng,
+          address: address
+        }).eq('id', user.id);
+      }
+
+      setUserLocation({ latitude: lat, longitude: lng, address });
+    } catch (error) {
+      console.error("Geolocation error:", error);
+      alert("Could not get current location.");
+    } finally {
+      setLocationLoading(false);
+    }
   };
 
   return (

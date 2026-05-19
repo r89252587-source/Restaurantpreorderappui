@@ -141,13 +141,13 @@ export function OrderListScreen() {
             >
               {/* Order Header */}
               <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
+                <div className="flex-1 min-w-0 mr-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-[#1A1A1A]">
+                    <h3 className="font-semibold text-[#1A1A1A] truncate">
                       {order.restaurant?.name || order.restaurants?.name || "QuickBite Restaurant"}
                     </h3>
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                      className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 whitespace-nowrap ${getStatusColor(
                         order.status
                       )}`}
                     >
@@ -155,7 +155,7 @@ export function OrderListScreen() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-[#6B6B6B]">
-                    <MapPin size={14} />
+                    <MapPin size={14} className="flex-shrink-0" />
                     <span className="truncate">{order.restaurant?.location || order.restaurants?.location || "Location not available"}</span>
                   </div>
                 </div>

@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, ShoppingCart, Leaf, Star, MapPin, FileText, X, CalendarClock, ShoppingBag, UtensilsCrossed, Search } from "lucide-react";
 import { useCart } from "@/app/context/CartContext";
 import { useAuth } from "@/app/context/AuthContext";
 import { Input } from "@/app/components/ui/input";
 import { supabase } from "@/lib/supabase";
-import { useEffect } from "react";
 
 type Category = "all" | "veg" | "non-veg";
 type FoodType = "all" | "starter" | "main" | "bread" | "dessert" | "beverage";
@@ -20,6 +19,9 @@ export function MenuScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrderType, setSelectedOrderType] = useState<OrderType>("pre-booking");
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [showReadMore, setShowReadMore] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     if (restaurantId) {
@@ -97,6 +99,17 @@ export function MenuScreen() {
     fetchData();
   }, [restaurantId]);
 
+  useEffect(() => {
+    if (descRef.current && !isDescExpanded) {
+      const { scrollHeight, clientHeight } = descRef.current;
+      if (scrollHeight > clientHeight) {
+        setShowReadMore(true);
+      } else {
+        setShowReadMore(false);
+      }
+    }
+  }, [restaurant?.description]);
+
   const filteredItems = items.filter((item) => {
     // Filter by veg/non-veg category
     const categoryMatch = activeCategory === "all" || item.category === activeCategory;
@@ -162,7 +175,27 @@ export function MenuScreen() {
             )}
           </div>
         </div>
-        <div className="mt-3 flex items-start gap-2">
+        {restaurant?.description && (
+          <div className="mt-3 text-[#6B6B6B] text-sm">
+            <p
+              ref={descRef}
+              className={`leading-relaxed transition-all ${
+                isDescExpanded ? "" : "line-clamp-3"
+              }`}
+            >
+              {restaurant.description}
+            </p>
+            {showReadMore && (
+              <button
+                onClick={() => setIsDescExpanded(!isDescExpanded)}
+                className="text-[#FF0031] font-semibold mt-1 focus:outline-none hover:underline"
+              >
+                {isDescExpanded ? "Read Less" : "Read More..."}
+              </button>
+            )}
+          </div>
+        )}
+        <div className="mt-3 flex items-start gap-2 border-t border-gray-100 pt-3">
           <MapPin size={18} className="text-[#6B6B6B] mt-0.5 flex-shrink-0" />
           <p className="text-[#6B6B6B] text-sm">{restaurant?.location}</p>
         </div>
