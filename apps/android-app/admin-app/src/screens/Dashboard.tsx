@@ -36,7 +36,6 @@ export default function Dashboard({ session: _session, profile, onSignOut }: { s
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [restaurant, setRestaurant] = useState<any>(null);
   const [restaurantLoading, setRestaurantLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   // default to dashboard if root
@@ -243,68 +242,66 @@ function DashboardView({ orders, fetchOrders }: { orders: any[], fetchOrders: ()
 
   return (
     <div className="dashboard-view-container animate-fade-in">
-      <div className="stats-grid premium">
+      <div className="stats-grid">
         <StatCard
           icon={Package}
           gradient="linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)"
-          color="#ffffff"
           title="Total Orders"
           value={orders.length}
         />
         <StatCard
           icon={IndianRupee}
           gradient="linear-gradient(135deg, #10B981 0%, #059669 100%)"
-          color="#ffffff"
-          title="Total Revenue"
+          title="Revenue"
           value={`₹${totalRevenue.toLocaleString()}`}
         />
         <StatCard
           icon={Clock}
           gradient="linear-gradient(135deg, #F59E0B 0%, #D97706 100%)"
-          color="#ffffff"
-          title="Pending Orders"
+          title="Pending"
           value={pendingCount}
         />
       </div>
 
-      <div className="content-card premium-card" style={{ marginBottom: '2rem', border: '1px solid #10B981' }}>
-        <div className="card-header modern" style={{ flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ flex: '1 1 auto' }}>
-            <h2 className="text-lg font-bold" style={{ color: '#059669' }}>Confirmed Orders</h2>
-            <p className="text-muted text-sm">Awaiting OTP verification from customer</p>
-          </div>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <input
-              type="text"
-              placeholder="Search by OTP..."
-              value={otpSearch}
-              onChange={(e) => setOtpSearch(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              style={{
-                padding: '0.6rem 1rem',
-                borderRadius: '0.5rem',
-                border: '1px solid #10B981',
-                outline: 'none',
-                width: '180px',
-                letterSpacing: otpSearch ? '0.2em' : 'normal',
-                fontFamily: otpSearch ? 'monospace' : 'inherit'
-              }}
-            />
-            <button className="btn btn-primary premium-hover" style={{ background: '#10B981', color: 'white' }} onClick={fetchOrders}>
-              <RefreshCw size={16} /> Refresh
+      <div className="content-card" style={{ marginBottom: '0.75rem', border: '1px solid #10B981' }}>
+        <div className="card-header">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <div>
+              <h2 style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#059669' }}>Confirmed</h2>
+              <p className="text-muted" style={{ fontSize: '0.75rem' }}>OTP verification pending</p>
+            </div>
+            <button className="btn" style={{ background: '#10B981', color: 'white', padding: '0.375rem 0.75rem', fontSize: '0.75rem' }} onClick={fetchOrders}>
+              <RefreshCw size={14} />
             </button>
           </div>
+          <input
+            type="text"
+            placeholder="Search OTP..."
+            value={otpSearch}
+            onChange={(e) => setOtpSearch(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            style={{
+              padding: '0.4rem 0.75rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #10B981',
+              outline: 'none',
+              width: '100%',
+              fontSize: '0.8125rem',
+              letterSpacing: otpSearch ? '0.15em' : 'normal',
+              fontFamily: otpSearch ? 'monospace' : 'inherit'
+            }}
+          />
         </div>
         <OrdersTable orders={filteredConfirmedOrders} onUpdate={fetchOrders} />
       </div>
 
-      <div className="content-card premium-card">
-        <div className="card-header modern">
+      <div className="content-card">
+        <div className="card-header" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h2 className="text-lg font-bold">Recent Orders</h2>
-            <p className="text-muted text-sm">Real-time order tracking</p>
+            <h2 style={{ fontSize: '0.9375rem', fontWeight: 700 }}>Recent Orders</h2>
+            <p className="text-muted" style={{ fontSize: '0.75rem' }}>Latest activity</p>
           </div>
-          <button className="btn btn-primary premium-hover" onClick={fetchOrders}>
-            <RefreshCw size={16} /> Refresh
+          <button className="btn" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem', background: 'var(--primary)', color: 'white' }} onClick={fetchOrders}>
+            <RefreshCw size={14} />
           </button>
         </div>
         <OrdersTable orders={orders.slice(0, 5)} onUpdate={fetchOrders} />
@@ -618,109 +615,136 @@ function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void
   }, [order.id]);
 
   return (
-    <div className="modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-      <div className="modal-content" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '0' }}>
-        <div className="modal-header" style={{ padding: '1.5rem', borderBottom: '1px solid #E2E8F0', position: 'sticky', top: 0, background: 'white', zIndex: 10 }}>
-          <div>
-            <h2 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              Order #{order.id.slice(0, 8).toUpperCase()}
-              <span className={`modern-badge status-${order.status || 'pending'}`} style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}>
+    <div className="modal" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 0 }}>
+      <div className="modal-content animate-fade-in" style={{ width: '100%', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '0', borderRadius: '1.25rem 1.25rem 0 0', display: 'flex', flexDirection: 'column' }}>
+        
+        {/* Sticky Header */}
+        <div className="modal-header" style={{ padding: '1.25rem', borderBottom: '1px solid #E2E8F0', position: 'sticky', top: 0, background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(8px)', zIndex: 10, margin: 0 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
+                Order #{order.id.slice(0, 8).toUpperCase()}
+              </h2>
+              <span className={`modern-badge status-${order.status || 'pending'}`} style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem' }}>
                 {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Pending'}
               </span>
-            </h2>
-            <p className="text-muted text-sm mt-1">
+            </div>
+            <p className="text-muted" style={{ fontSize: '0.75rem', margin: 0 }}>
               {new Date(order.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
             </p>
           </div>
-          <button className="btn-close" onClick={onClose}><X /></button>
+          <button className="btn-close" onClick={onClose} style={{ background: '#F1F5F9', borderRadius: '50%', width: '36px', height: '36px', padding: 0, flexShrink: 0 }}><X size={18} /></button>
         </div>
 
-        <div style={{ padding: '1.5rem' }}>
-          <div className="responsive-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem', background: '#F8FAFC', padding: '1rem', borderRadius: '0.75rem' }}>
-            <div>
-              <p className="text-muted text-xs uppercase tracking-wider mb-1">Order Type</p>
-              <p className="font-semibold text-main capitalize">{order.order_type === 'pre-booking' ? 'Pre Booking' : order.order_type}</p>
-            </div>
-            <div>
-              <p className="text-muted text-xs uppercase tracking-wider mb-1">Total Amount</p>
-              <p className="font-bold text-[#10B981] text-lg">₹{order.total_amount}</p>
-            </div>
-            <div>
-              <p className="text-muted text-xs uppercase tracking-wider mb-1">Customer Name</p>
-              <p className="font-medium text-main">
-                {customerLoading ? 'Loading...' : customerName}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted text-xs uppercase tracking-wider mb-1">Customer Phone</p>
-              <p className="font-medium text-main">
-                {customerLoading ? 'Loading...' : customerPhone}
-              </p>
-            </div>
-            {isPreBookingOrTakeaway && (
-              <div style={{ gridColumn: '1 / -1' }}>
-                <p className="text-muted text-xs uppercase tracking-wider mb-1">Expected Time</p>
-                <p className="font-medium text-main">{expectedTime || 'Not provided'}</p>
+        <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          
+          {/* Customer & Order Info Card */}
+          <div style={{ background: '#F8FAFC', borderRadius: '1rem', padding: '1rem', border: '1px solid #E2E8F0' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Users size={16} color="var(--primary)" /> Order Details
+            </h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <span className="text-muted" style={{ fontSize: '0.8125rem' }}>Customer</span>
+                <span className="font-semibold text-main" style={{ fontSize: '0.8125rem', textAlign: 'right' }}>{customerLoading ? 'Loading...' : customerName}</span>
               </div>
-            )}
-            {isDineIn && (
-              <>
-                <div>
-                  <p className="text-muted text-xs uppercase tracking-wider mb-1">Number of Persons</p>
-                  <p className="font-medium text-main">{peopleCount || 'Not provided'}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <span className="text-muted" style={{ fontSize: '0.8125rem' }}>Phone</span>
+                <span className="font-semibold text-main" style={{ fontSize: '0.8125rem', textAlign: 'right' }}>{customerLoading ? 'Loading...' : customerPhone}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <span className="text-muted" style={{ fontSize: '0.8125rem' }}>Type</span>
+                <span className="font-semibold text-main capitalize" style={{ fontSize: '0.8125rem', textAlign: 'right' }}>
+                  {order.order_type === 'pre-booking' ? 'Pre Booking' : order.order_type}
+                </span>
+              </div>
+              
+              {isPreBookingOrTakeaway && (
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <span className="text-muted" style={{ fontSize: '0.8125rem' }}>Expected</span>
+                  <span className="font-semibold text-main" style={{ fontSize: '0.8125rem', textAlign: 'right' }}>{expectedTime || 'Not provided'}</span>
                 </div>
-                <div>
-                  <p className="text-muted text-xs uppercase tracking-wider mb-1">Expected Time</p>
-                  <p className="font-medium text-main">{expectedTime || 'Not provided'}</p>
-                </div>
-                {reservationDate && (
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <p className="text-muted text-xs uppercase tracking-wider mb-1">Reservation Date</p>
-                    <p className="font-medium text-main">{new Date(reservationDate).toLocaleDateString()}</p>
+              )}
+
+              {isDineIn && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span className="text-muted" style={{ fontSize: '0.8125rem' }}>Guests</span>
+                    <span className="font-semibold text-main" style={{ fontSize: '0.8125rem', textAlign: 'right' }}>{peopleCount || 'Not provided'}</span>
                   </div>
-                )}
-              </>
-            )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span className="text-muted" style={{ fontSize: '0.8125rem' }}>Expected Time</span>
+                    <span className="font-semibold text-main" style={{ fontSize: '0.8125rem', textAlign: 'right' }}>{expectedTime || 'Not provided'}</span>
+                  </div>
+                  {reservationDate && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <span className="text-muted" style={{ fontSize: '0.8125rem' }}>Date</span>
+                      <span className="font-semibold text-main" style={{ fontSize: '0.8125rem', textAlign: 'right' }}>{new Date(reservationDate).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
-          <h3 className="font-bold text-main mb-4">Order Items</h3>
+          {/* Items List */}
+          <div>
+            <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <ShoppingBag size={16} color="var(--primary)" /> Items ({items.length})
+            </h3>
 
-          {loading ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Loading items...</div>
-          ) : items.length === 0 ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: '0.75rem' }}>No items found for this order.</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {items.map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', border: '1px solid #E2E8F0', borderRadius: '0.75rem' }}>
-                  <div style={{ width: '60px', height: '60px', borderRadius: '0.5rem', overflow: 'hidden', background: '#F1F5F9', flexShrink: 0 }}>
-                    {item.menu_items?.image ? (
-                      <img src={item.menu_items.image} alt={item.menu_items.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }}>No Img</div>
-                    )}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <h4 className="font-bold text-main" style={{ fontSize: '1rem', margin: 0 }}>{item.menu_items?.name || 'Unknown Item'}</h4>
-                      <span className="font-bold text-main">
-                        ₹{item.portion === 'half' ? item.menu_items?.half_price : item.portion === 'full' ? item.menu_items?.full_price : item.menu_items?.price}
-                      </span>
+            {loading ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B', fontSize: '0.875rem' }}>Loading items...</div>
+            ) : items.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: '0.75rem', fontSize: '0.875rem' }}>No items found.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {items.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: '0.75rem', padding: '0.75rem', border: '1px solid #E2E8F0', borderRadius: '0.875rem', background: 'white' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '0.5rem', overflow: 'hidden', background: '#F1F5F9', flexShrink: 0 }}>
+                      {item.menu_items?.image ? (
+                        <img src={item.menu_items.image} alt={item.menu_items.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '0.6rem' }}>No Img</div>
+                      )}
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
-                      <span className="text-muted text-sm">Qty: {item.quantity}</span>
-                      <span className="text-muted text-sm font-medium">Subtotal: ₹{(item.portion === 'half' ? item.menu_items?.half_price : item.portion === 'full' ? item.menu_items?.full_price : item.menu_items?.price) * item.quantity}</span>
-                    </div>
-                    {item.portion && (
-                      <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#F1F5F9', color: '#475569', borderRadius: '0.25rem', fontSize: '0.8rem', textTransform: 'capitalize' }}>
-                        <strong>Portion:</strong> {item.portion}
+                    
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.15rem' }}>
+                        <h4 className="font-semibold text-main" style={{ fontSize: '0.875rem', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: '0.5rem' }}>
+                          {item.menu_items?.name || 'Unknown Item'}
+                        </h4>
+                        <span className="font-bold text-main" style={{ fontSize: '0.875rem' }}>
+                          ₹{(item.portion === 'half' ? item.menu_items?.half_price : item.portion === 'full' ? item.menu_items?.full_price : item.menu_items?.price) * item.quantity}
+                        </span>
                       </div>
-                    )}
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                          {item.quantity} x ₹{item.portion === 'half' ? item.menu_items?.half_price : item.portion === 'full' ? item.menu_items?.full_price : item.menu_items?.price}
+                        </span>
+                        {item.portion && (
+                          <span style={{ fontSize: '0.65rem', padding: '0.15rem 0.35rem', background: '#F1F5F9', color: '#475569', borderRadius: '0.25rem', textTransform: 'capitalize' }}>
+                            {item.portion}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
+          
+        </div>
+        
+        {/* Fixed Bottom Total Summary */}
+        <div style={{ padding: '1.25rem', background: '#F8FAFC', borderTop: '1px solid #E2E8F0', marginTop: 'auto', position: 'sticky', bottom: 0, zIndex: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-muted)' }}>Total Amount</span>
+            <span style={{ fontSize: '1.35rem', fontWeight: 800, color: '#10B981' }}>₹{order.total_amount}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -842,105 +866,74 @@ function MenuManagementView({ menuItems, fetchMenu, restaurantId }: { menuItems:
 
   return (
     <>
-      <div className="content-card premium-card animate-fade-in">
-        <div className="card-header modern" style={{ paddingBottom: '2rem' }}>
+      <div className="animate-fade-in">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
           <div>
-            <h2 className="text-lg font-bold">Menu Inventory</h2>
-            <p className="text-muted text-sm">Manage your restaurant offerings</p>
+            <h2 style={{ fontSize: '0.9375rem', fontWeight: 700 }}>Menu</h2>
+            <p className="text-muted" style={{ fontSize: '0.75rem' }}>{filteredItems.length} items</p>
           </div>
-          <button className="btn btn-primary premium-hover" onClick={() => { setEditingItem(null); setModalOpen(true); }}>
-            <Plus size={16} /> Add New Item
+          <button className="btn btn-primary" style={{ padding: '0.4rem 0.875rem', fontSize: '0.8125rem' }} onClick={() => { setEditingItem(null); setModalOpen(true); }}>
+            <Plus size={15} /> Add
           </button>
         </div>
 
-        <div className="filters-bar" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
-          <div className="search-wrapper" style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
-            <input
-              type="text"
-              placeholder="Search items..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: '1px solid #E2E8F0', outline: 'none' }}
-            />
-          </div>
-          <div className="category-filters" style={{ display: 'flex', gap: '0.5rem' }}>
-            {['all', 'veg', 'non-veg'].map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`btn ${selectedCategory === cat ? 'btn-primary' : ''}`}
-                style={{ textTransform: 'capitalize', padding: '0.75rem 1.5rem', background: selectedCategory === cat ? 'var(--primary)' : 'white', border: '1px solid #E2E8F0', color: selectedCategory === cat ? 'white' : 'var(--text-main)' }}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+        <div style={{ marginBottom: '0.625rem' }}>
+          <input
+            type="text"
+            placeholder="Search items..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{ width: '100%', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', border: '1px solid #E2E8F0', outline: 'none', fontSize: '0.8125rem' }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.75rem', overflowX: 'auto', scrollbarWidth: 'none' }}>
+          {['all', 'veg', 'non-veg'].map(cat => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              style={{
+                textTransform: 'capitalize',
+                padding: '0.3rem 0.75rem',
+                borderRadius: '1rem',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                background: selectedCategory === cat ? 'var(--primary)' : 'white',
+                border: '1px solid #E2E8F0',
+                color: selectedCategory === cat ? 'white' : 'var(--text-muted)'
+              }}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
 
-        <div className="table-responsive">
-          <table className="modern-table">
-            <thead>
-              <tr>
-                <th>Item Details</th>
-                <th>Category</th>
-                <th>Food Type</th>
-                <th>Price</th>
-                <th>Portions</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
-                    No menu items found.
-                  </td>
-                </tr>
-              ) : filteredItems.map((item, idx) => (
-                <tr key={item.id} style={{ animationDelay: `${idx * 0.03}s` }} className="table-row-animate">
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <div style={{ width: '56px', height: '56px', borderRadius: '0.75rem', overflow: 'hidden', background: '#f1f5f9' }}>
-                        <img src={item.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                      <div>
-                        <p style={{ fontWeight: '700', color: 'var(--text-main)' }}>{item.name}</p>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.description}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`modern-badge ${item.category === 'veg' ? 'status-confirmed' : 'status-cancelled'}`} style={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>
-                      {item.category}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="text-muted" style={{ textTransform: 'capitalize' }}>{item.food_type}</span>
-                  </td>
-                  <td style={{ fontWeight: '700' }}>
-                    {item.has_portions ? (
-                      <div style={{ fontSize: '0.85rem' }}>
-                        <div>H: ₹{item.half_price}</div>
-                        <div>F: ₹{item.full_price}</div>
-                      </div>
-                    ) : `₹${item.price}`}
-                  </td>
-                  <td>
-                    <span className={`modern-badge ${item.has_portions ? 'status-preparing' : 'status-pending'}`}>
-                      {item.has_portions ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button className="action-btn success tooltip" data-tip="Edit" onClick={() => { setEditingItem(item); setModalOpen(true); }}><Edit2 size={16} /></button>
-                      <button className="action-btn danger tooltip" data-tip="Delete" onClick={() => deleteItem(item.id)}><Trash2 size={16} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {filteredItems.length === 0 ? (
+          <div className="content-card" style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
+            No menu items found.
+          </div>
+        ) : filteredItems.map((item, idx) => (
+          <div key={item.id} className="menu-card-mobile table-row-animate" style={{ animationDelay: `${idx * 0.03}s` }}>
+            <div className="menu-card-img">
+              {item.image ? <img src={item.image} alt={item.name} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '0.6875rem' }}>No img</div>}
+            </div>
+            <div className="menu-card-body">
+              <div className="menu-card-name">{item.name}</div>
+              <div className="menu-card-desc">{item.description}</div>
+              <div className="menu-card-meta">
+                <span className={`modern-badge ${item.category === 'veg' ? 'status-confirmed' : 'status-cancelled'}`} style={{ textTransform: 'uppercase', fontSize: '0.6rem' }}>{item.category}</span>
+                <span className="type-badge">{item.food_type}</span>
+                <span style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                  {item.has_portions ? `H:₹${item.half_price} F:₹${item.full_price}` : `₹${item.price}`}
+                </span>
+              </div>
+              <div className="menu-card-actions">
+                <button className="action-btn success" onClick={() => { setEditingItem(item); setModalOpen(true); }}><Edit2 size={15} /></button>
+                <button className="action-btn danger" onClick={() => deleteItem(item.id)}><Trash2 size={15} /></button>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {modalOpen && (
@@ -969,15 +962,15 @@ function AnalyticsView({ orders }: { orders: any[] }) {
 
   return (
     <div className="animate-fade-in">
-      <div className="stats-grid premium">
-        <StatCard icon={IndianRupee} gradient="linear-gradient(135deg, #10B981 0%, #059669 100%)" title="Total Revenue" value={`₹${totalRevenue.toLocaleString()}`} />
-        <StatCard icon={ShoppingBag} gradient="linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)" title="Avg Order Value" value={`₹${avgOrderValue}`} />
-        <StatCard icon={Users} gradient="linear-gradient(135deg, #F59E0B 0%, #D97706 100%)" title="Total Customers" value={orders.length} />
+      <div className="stats-grid">
+        <StatCard icon={IndianRupee} gradient="linear-gradient(135deg, #10B981 0%, #059669 100%)" title="Revenue" value={`₹${totalRevenue.toLocaleString()}`} />
+        <StatCard icon={ShoppingBag} gradient="linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)" title="Avg Value" value={`₹${avgOrderValue}`} />
+        <StatCard icon={Users} gradient="linear-gradient(135deg, #F59E0B 0%, #D97706 100%)" title="Customers" value={orders.length} />
       </div>
-      <div className="content-card" style={{ marginTop: '2rem', padding: '4rem 2rem', textAlign: 'center' }}>
-        <BarChart2 size={48} color="var(--primary)" style={{ opacity: 0.2, marginBottom: '1.5rem' }} />
-        <h3 style={{ marginBottom: '0.5rem' }}>Analytics charts coming soon</h3>
-        <p className="text-muted">Detailed performance metrics and trends will be displayed here.</p>
+      <div className="content-card" style={{ marginTop: '0.75rem', padding: '2.5rem 1rem', textAlign: 'center' }}>
+        <BarChart2 size={36} color="var(--primary)" style={{ opacity: 0.2, marginBottom: '1rem' }} />
+        <h3 style={{ fontSize: '0.9375rem', marginBottom: '0.35rem' }}>Analytics coming soon</h3>
+        <p className="text-muted" style={{ fontSize: '0.8125rem' }}>Performance metrics will appear here.</p>
       </div>
     </div>
   )
@@ -1063,26 +1056,26 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
   if (!formData) return null;
 
   return (
-    <div className="content-card premium-card animate-fade-in" style={{ maxWidth: '900px', margin: '0 auto', background: 'white', borderRadius: '1.25rem' }}>
-      <div className="card-header modern" style={{ background: 'transparent', padding: '2rem 2.5rem', borderBottom: '1px solid #E2E8F0' }}>
+    <div className="content-card animate-fade-in" style={{ background: 'white' }}>
+      <div className="card-header" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#1E293B' }}>Restaurant Profile</h2>
+          <h2 style={{ fontSize: '0.9375rem', fontWeight: 'bold', color: '#1E293B' }}>Restaurant Profile</h2>
           {saveMessage && (
-            <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: saveMessage.type === 'success' ? '#059669' : '#DC2626' }}>
+            <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: saveMessage.type === 'success' ? '#059669' : '#DC2626' }}>
               {saveMessage.text}
             </p>
           )}
         </div>
         <button
-          className="btn btn-primary premium-hover"
+          className="btn btn-primary"
           onClick={handleSave}
           disabled={isSaving}
-          style={{ background: '#FC0A3D', color: 'white', opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}
+          style={{ padding: '0.4rem 0.875rem', fontSize: '0.8125rem', opacity: isSaving ? 0.7 : 1 }}
         >
-          <Save size={16} /> {isSaving ? 'Saving...' : 'Save Changes'}
+          <Save size={14} /> {isSaving ? 'Saving...' : 'Save'}
         </button>
       </div>
-      <div className="admin-form" style={{ padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="admin-form" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div className="form-row">
           <div className="form-group">
             <label>Restaurant Name</label>
@@ -1105,7 +1098,7 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
               📍 Use Current Location
             </button>
           </div>
-          <div style={{ height: '300px', width: '100%', borderRadius: '0.75rem', overflow: 'hidden', marginBottom: '1rem', border: '2px solid #E2E8F0', zIndex: 0 }}>
+          <div style={{ height: '200px', width: '100%', borderRadius: '0.625rem', overflow: 'hidden', marginBottom: '0.75rem', border: '1px solid #E2E8F0', zIndex: 0 }}>
             <MapContainer center={mapPosition || { lat: 20.5937, lng: 78.9629 }} zoom={mapPosition ? 15 : 4} style={{ height: '100%', width: '100%', zIndex: 1 }}>
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
