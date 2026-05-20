@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingBag, BookOpen, Store, BarChart2,
-  Users, LogOut, Utensils, Bell, Package, Clock,
-  RefreshCw, Check, X, Plus, Edit2, Trash2, Save, IndianRupee, Menu
+  Users, LogOut, Bell, Package, Clock,
+  RefreshCw, Check, X, Plus, Edit2, Trash2, Save, IndianRupee, Phone
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
@@ -242,22 +242,24 @@ function DashboardView({ orders, fetchOrders }: { orders: any[], fetchOrders: ()
 
   return (
     <div className="dashboard-view-container animate-fade-in">
-      <div className="stats-grid">
+      <div className="stats-grid dashboard-stats-grid">
         <StatCard
           icon={Package}
-          gradient="linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)"
+          gradient="#ffffff"
           title="Total Orders"
           value={orders.length}
+          titleColor="#000000"
         />
         <StatCard
           icon={IndianRupee}
-          gradient="linear-gradient(135deg, #10B981 0%, #059669 100%)"
+          gradient="linear-gradient(145deg, #475569 0%, #334155 100%)"
           title="Revenue"
           value={`₹${totalRevenue.toLocaleString()}`}
+          titleColor="#000000"
         />
         <StatCard
           icon={Clock}
-          gradient="linear-gradient(135deg, #F59E0B 0%, #D97706 100%)"
+          gradient="linear-gradient(145deg, #3f3f46 0%, #27272a 100%)"
           title="Pending"
           value={pendingCount}
         />
@@ -395,75 +397,75 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
     <div>
       <div className="table-responsive order-table-desktop">
         <table className="modern-table">
-        <thead>
-          <tr>
-            <th>Order ID</th>
-            <th>Customer</th>
-            <th>Type</th>
-            <th>Amount</th>
-            <th>Status</th>
-            <th>Date & Time</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.length === 0 ? (
+          <thead>
             <tr>
-              <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                No orders found
-              </td>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Type</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Date & Time</th>
+              <th>Actions</th>
             </tr>
-          ) : orders.map((order, idx) => (
-            <tr
-              key={order.id}
-              style={{ animationDelay: `${idx * 0.05}s`, cursor: 'pointer' }}
-              className="table-row-animate hover-row"
-              onClick={() => setViewingOrder(order)}
-            >
-              <td className="font-medium text-main">#{order.id.slice(0, 8).toUpperCase()}</td>
-              <td>
-                <div className="customer-cell">
-                  <div className="customer-avatar">G</div>
-                  <div className="customer-info">
-                    <span className="customer-name">Guest User</span>
-                    <span className="customer-id">ID: {order.id.slice(0, 4)}</span>
+          </thead>
+          <tbody>
+            {orders.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                  No orders found
+                </td>
+              </tr>
+            ) : orders.map((order, idx) => (
+              <tr
+                key={order.id}
+                style={{ animationDelay: `${idx * 0.05}s`, cursor: 'pointer' }}
+                className="table-row-animate hover-row"
+                onClick={() => setViewingOrder(order)}
+              >
+                <td className="font-medium text-main">#{order.id.slice(0, 8).toUpperCase()}</td>
+                <td>
+                  <div className="customer-cell">
+                    <div className="customer-avatar">G</div>
+                    <div className="customer-info">
+                      <span className="customer-name">Guest User</span>
+                      <span className="customer-id">ID: {order.id.slice(0, 4)}</span>
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td>
-                <span className="type-badge">
-                  {order.order_type === 'pre-booking' ? 'Pre Booking' : order.order_type}
-                </span>
-              </td>
-              <td className="font-bold">₹{order.total_amount}</td>
-              <td><span className={`modern-badge status-${order.status || 'pending'}`}>{order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Pending'}</span></td>
-              <td className="text-muted">
-                <div style={{ fontWeight: 500 }}>{new Date(order.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                <div style={{ fontSize: '0.8rem', marginTop: '0.2rem', color: '#94A3B8' }}>{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-              </td>
-              <td>
-                <div className="action-buttons" onClick={e => e.stopPropagation()}>
-                  {(!order.status || order.status === 'pending') && (
-                    <>
-                      <button className="action-btn success tooltip" data-tip="Confirm" onClick={() => updateStatus(order.id, 'confirmed')}><Check size={16} /></button>
-                      <button className="action-btn danger tooltip" data-tip="Cancel" onClick={() => updateStatus(order.id, 'cancelled')}><X size={16} /></button>
-                    </>
-                  )}
-                  {order.status === 'confirmed' && (
-                    <button className="btn btn-primary premium-hover" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '0.5rem' }} onClick={() => setVerifyingOrder(order)}>
-                      Verify & Complete
-                    </button>
-                  )}
-                  {order.status === 'completed' && order.otp_verified_at && (
-                    <span className="text-muted" style={{ fontSize: '0.75rem', display: 'block', marginTop: '0.2rem' }}>
-                      Verified: {new Date(order.otp_verified_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
+                </td>
+                <td>
+                  <span className="type-badge">
+                    {order.order_type === 'pre-booking' ? 'Pre Booking' : order.order_type}
+                  </span>
+                </td>
+                <td className="font-bold">₹{order.total_amount}</td>
+                <td><span className={`modern-badge status-${order.status || 'pending'}`}>{order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Pending'}</span></td>
+                <td className="text-muted">
+                  <div style={{ fontWeight: 500 }}>{new Date(order.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                  <div style={{ fontSize: '0.8rem', marginTop: '0.2rem', color: '#94A3B8' }}>{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                </td>
+                <td>
+                  <div className="action-buttons" onClick={e => e.stopPropagation()}>
+                    {(!order.status || order.status === 'pending') && (
+                      <>
+                        <button className="action-btn success tooltip" data-tip="Confirm" onClick={() => updateStatus(order.id, 'confirmed')}><Check size={16} /></button>
+                        <button className="action-btn danger tooltip" data-tip="Cancel" onClick={() => updateStatus(order.id, 'cancelled')}><X size={16} /></button>
+                      </>
+                    )}
+                    {order.status === 'confirmed' && (
+                      <button className="btn btn-primary premium-hover" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '0.5rem' }} onClick={() => setVerifyingOrder(order)}>
+                        Verify & Complete
+                      </button>
+                    )}
+                    {order.status === 'completed' && order.otp_verified_at && (
+                      <span className="text-muted" style={{ fontSize: '0.75rem', display: 'block', marginTop: '0.2rem' }}>
+                        Verified: {new Date(order.otp_verified_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
         </table>
       </div>
 
@@ -479,9 +481,9 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
           const people = getPeopleCount(order);
 
           return (
-            <div 
-              key={order.id} 
-              className="content-card premium-card table-row-animate" 
+            <div
+              key={order.id}
+              className="content-card premium-card table-row-animate"
               style={{ animationDelay: `${idx * 0.05}s`, marginBottom: '0.9rem', padding: '1rem', cursor: 'pointer' }}
               onClick={() => setViewingOrder(order)}
             >
@@ -490,13 +492,75 @@ function OrdersTable({ orders, onUpdate }: { orders: any[], onUpdate: () => void
                 <span className={`modern-badge status-${order.status || 'pending'}`}>{order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Pending'}</span>
               </div>
               <div style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem' }}>
-                <div><strong>Customer:</strong> {getCustomerName(order)}</div>
-                <div><strong>Phone:</strong> {getCustomerPhone(order)}</div>
-                <div><strong>Type:</strong> {order.order_type === 'pre-booking' ? 'Pre Booking' : order.order_type}</div>
-                <div><strong>Amount:</strong> ₹{order.total_amount}</div>
-                {expectedTime && <div><strong>Expected Time:</strong> {expectedTime}</div>}
-                {isDineIn && <div><strong>Persons:</strong> {people || 'Not provided'}</div>}
-                <div><strong>Date:</strong> {new Date(order.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</div>
+                <div className="mobile-order-details-card">
+                  <div className="mobile-order-detail-row">
+                    <span className="mobile-order-detail-label">
+                      <Users size={13} />
+                      Customer
+                    </span>
+                    <span className="mobile-order-detail-value">
+                      {getCustomerName(order)}
+                    </span>
+                  </div>
+
+                  <div className="mobile-order-detail-row">
+                    <span className="mobile-order-detail-label">
+                      <Phone size={13} />
+                      Phone
+                    </span>
+                    <span className="mobile-order-detail-value">
+                      {getCustomerPhone(order)}
+                    </span>
+                  </div>
+
+                  <div className="mobile-order-detail-row">
+                    <span className="mobile-order-detail-label">
+                      <ShoppingBag size={13} />
+                      Type
+                    </span>
+                    <span className="mobile-order-chip">
+                      {order.order_type === 'pre-booking' ? 'Pre Booking' : order.order_type}
+                    </span>
+                  </div>
+
+                  <div className="mobile-order-detail-row">
+                    <span className="mobile-order-detail-label">
+                      <IndianRupee size={13} />
+                      Amount
+                    </span>
+                    <span className="mobile-order-amount">
+                      ₹{order.total_amount}
+                    </span>
+                  </div>
+
+                  {expectedTime && (
+                    <div className="mobile-order-detail-row">
+                      <span className="mobile-order-detail-label">
+                        <Clock size={13} />
+                        Expected
+                      </span>
+                      <span className="mobile-order-detail-value">
+                        {expectedTime}
+                      </span>
+                    </div>
+                  )}
+
+                  {isDineIn && (
+                    <div className="mobile-order-detail-row">
+                      <span className="mobile-order-detail-label">
+                        <Users size={13} />
+                        Persons
+                      </span>
+                      <span className="mobile-order-detail-value">
+                        {people || 'Not provided'}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="mobile-order-date">
+                    {new Date(order.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                  </div>
+                </div>
               </div>
               <div className="action-buttons" style={{ marginTop: '0.8rem' }} onClick={(e) => e.stopPropagation()}>
                 {(!order.status || order.status === 'pending') && (
@@ -617,7 +681,7 @@ function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void
   return (
     <div className="modal" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 0 }}>
       <div className="modal-content animate-fade-in" style={{ width: '100%', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '0', borderRadius: '1.25rem 1.25rem 0 0', display: 'flex', flexDirection: 'column' }}>
-        
+
         {/* Sticky Header */}
         <div className="modal-header" style={{ padding: '1.25rem', borderBottom: '1px solid #E2E8F0', position: 'sticky', top: 0, background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(8px)', zIndex: 10, margin: 0 }}>
           <div style={{ flex: 1 }}>
@@ -637,13 +701,13 @@ function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void
         </div>
 
         <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          
+
           {/* Customer & Order Info Card */}
           <div style={{ background: '#F8FAFC', borderRadius: '1rem', padding: '1rem', border: '1px solid #E2E8F0' }}>
             <h3 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Users size={16} color="var(--primary)" /> Order Details
             </h3>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span className="text-muted" style={{ fontSize: '0.8125rem' }}>Customer</span>
@@ -659,9 +723,9 @@ function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void
                   {order.order_type === 'pre-booking' ? 'Pre Booking' : order.order_type}
                 </span>
               </div>
-              
+
               {isPreBookingOrTakeaway && (
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <span className="text-muted" style={{ fontSize: '0.8125rem' }}>Expected</span>
                   <span className="font-semibold text-main" style={{ fontSize: '0.8125rem', textAlign: 'right' }}>{expectedTime || 'Not provided'}</span>
                 </div>
@@ -709,7 +773,7 @@ function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void
                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '0.6rem' }}>No Img</div>
                       )}
                     </div>
-                    
+
                     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.15rem' }}>
                         <h4 className="font-semibold text-main" style={{ fontSize: '0.875rem', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: '0.5rem' }}>
@@ -719,7 +783,7 @@ function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void
                           ₹{(item.portion === 'half' ? item.menu_items?.half_price : item.portion === 'full' ? item.menu_items?.full_price : item.menu_items?.price) * item.quantity}
                         </span>
                       </div>
-                      
+
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span className="text-muted" style={{ fontSize: '0.75rem' }}>
                           {item.quantity} x ₹{item.portion === 'half' ? item.menu_items?.half_price : item.portion === 'full' ? item.menu_items?.full_price : item.menu_items?.price}
@@ -736,9 +800,9 @@ function OrderDetailsModal({ order, onClose }: { order: any, onClose: () => void
               </div>
             )}
           </div>
-          
+
         </div>
-        
+
         {/* Fixed Bottom Total Summary */}
         <div style={{ padding: '1.25rem', background: '#F8FAFC', borderTop: '1px solid #E2E8F0', marginTop: 'auto', position: 'sticky', bottom: 0, zIndex: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1075,30 +1139,30 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
           <Save size={14} /> {isSaving ? 'Saving...' : 'Save'}
         </button>
       </div>
-      <div className="admin-form" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div className="admin-form restaurant-profile-form" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div className="form-row">
-          <div className="form-group">
+          <div className="form-group form-block">
             <label>Restaurant Name</label>
             <input value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} />
           </div>
-          <div className="form-group">
+          <div className="form-group form-block">
             <label>Cuisine Type</label>
             <input value={formData.cuisine || ''} onChange={e => setFormData({ ...formData, cuisine: e.target.value })} />
           </div>
         </div>
-        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <div className="form-group form-block location-block" style={{ gridColumn: '1 / -1' }}>
+          <div className="location-block-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <label style={{ margin: 0 }}>Restaurant Location</label>
             <button
               type="button"
               onClick={handleLocateMe}
-              className="btn btn-ghost"
+              className="btn btn-ghost locate-btn"
               style={{ fontSize: '0.85rem', padding: '0.4rem 0.75rem', color: '#10B981', border: '1px solid #10B981', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '0.5rem' }}
             >
               📍 Use Current Location
             </button>
           </div>
-          <div style={{ height: '200px', width: '100%', borderRadius: '0.625rem', overflow: 'hidden', marginBottom: '0.75rem', border: '1px solid #E2E8F0', zIndex: 0 }}>
+          <div className="location-map-wrap" style={{ height: '200px', width: '100%', borderRadius: '0.625rem', overflow: 'hidden', marginBottom: '0.75rem', border: '1px solid #E2E8F0', zIndex: 0 }}>
             <MapContainer center={mapPosition || { lat: 20.5937, lng: 78.9629 }} zoom={mapPosition ? 15 : 4} style={{ height: '100%', width: '100%', zIndex: 1 }}>
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -1117,7 +1181,7 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
           />
         </div>
         <div className="form-row">
-          <div className="form-group">
+          <div className="form-group form-block">
             <label>Opening Hours</label>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
               <input type="time" value={openTime} onChange={e => setOpenTime(e.target.value)} />
@@ -1125,40 +1189,58 @@ function SettingsView({ restaurant, fetchRestaurant, onProfileCompleted }: { res
               <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)} />
             </div>
           </div>
-          <div className="form-group">
+          <div className="form-group form-block">
             <label>Contact Phone</label>
             <input value={formData.phone || ''} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
           </div>
         </div>
         <div className="form-row">
-          <div className="form-group">
+          <div className="form-group form-block">
             <label>Preparation Time</label>
             <input placeholder="20-25 min" value={formData.prep_time || ''} onChange={e => setFormData({ ...formData, prep_time: e.target.value })} />
           </div>
-          <div className="form-group">
+          <div className="form-group form-block">
             <label>Rating (Display only)</label>
             <input readOnly style={{ backgroundColor: '#F8FAFC', color: '#64748B' }} value={formData.rating || ''} />
           </div>
         </div>
-        <div className="form-group">
+        <div className="form-group form-block">
           <label>Restaurant Description</label>
           <textarea value={formData.description || ''} onChange={e => setFormData({ ...formData, description: e.target.value })} rows={4} />
         </div>
-        <div className="form-group">
+        <div className="form-group form-block">
           <label>Cover Image URL</label>
           <input value={formData.image || ''} onChange={e => setFormData({ ...formData, image: e.target.value })} />
         </div>
-        <div className="form-group">
+        <div className="form-group form-block">
           <label style={{ marginBottom: '0.5rem' }}>Enabled Services</label>
-          <div className="services-toggles" style={{ display: 'flex', gap: '2rem', background: '#F8FAFC', padding: '1.25rem', borderRadius: '0.75rem' }}>
-            <label className="checkbox-label">
-              <input type="checkbox" checked={formData.services?.preBooking || false} onChange={e => setFormData({ ...formData, services: { ...formData.services, preBooking: e.target.checked } })} /> Pre-Order
+          <div className="services-toggles">
+            <label className="service-switch-row">
+              <span className="service-switch-label">Pre-Order</span>
+              <input
+                type="checkbox"
+                checked={formData.services?.preBooking || false}
+                onChange={e => setFormData({ ...formData, services: { ...formData.services, preBooking: e.target.checked } })}
+              />
+              <span className="service-switch-slider" />
             </label>
-            <label className="checkbox-label">
-              <input type="checkbox" checked={formData.services?.takeaway || false} onChange={e => setFormData({ ...formData, services: { ...formData.services, takeaway: e.target.checked } })} /> Takeaway
+            <label className="service-switch-row">
+              <span className="service-switch-label">Takeaway</span>
+              <input
+                type="checkbox"
+                checked={formData.services?.takeaway || false}
+                onChange={e => setFormData({ ...formData, services: { ...formData.services, takeaway: e.target.checked } })}
+              />
+              <span className="service-switch-slider" />
             </label>
-            <label className="checkbox-label">
-              <input type="checkbox" checked={formData.services?.dineIn || false} onChange={e => setFormData({ ...formData, services: { ...formData.services, dineIn: e.target.checked } })} /> Dine-In
+            <label className="service-switch-row">
+              <span className="service-switch-label">Dine-In</span>
+              <input
+                type="checkbox"
+                checked={formData.services?.dineIn || false}
+                onChange={e => setFormData({ ...formData, services: { ...formData.services, dineIn: e.target.checked } })}
+              />
+              <span className="service-switch-slider" />
             </label>
           </div>
         </div>
