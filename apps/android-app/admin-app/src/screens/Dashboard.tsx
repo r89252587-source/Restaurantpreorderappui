@@ -982,14 +982,16 @@ function MenuManagementView({ menuItems, fetchMenu, restaurantId }: { menuItems:
               {item.image ? <img src={item.image} alt={item.name} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '0.6875rem' }}>No img</div>}
             </div>
             <div className="menu-card-body">
-              <div className="menu-card-name">{item.name}</div>
+              <div className="menu-card-head">
+                <div className="menu-card-name">{item.name}</div>
+                <span className="menu-card-price">
+                  {item.has_portions ? `H:₹${item.half_price} F:₹${item.full_price}` : `₹${item.price}`}
+                </span>
+              </div>
               <div className="menu-card-desc">{item.description}</div>
               <div className="menu-card-meta">
                 <span className={`modern-badge ${item.category === 'veg' ? 'status-confirmed' : 'status-cancelled'}`} style={{ textTransform: 'uppercase', fontSize: '0.6rem' }}>{item.category}</span>
                 <span className="type-badge">{item.food_type}</span>
-                <span style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
-                  {item.has_portions ? `H:₹${item.half_price} F:₹${item.full_price}` : `₹${item.price}`}
-                </span>
               </div>
               <div className="menu-card-actions">
                 <button className="action-btn success" onClick={() => { setEditingItem(item); setModalOpen(true); }}><Edit2 size={15} /></button>
